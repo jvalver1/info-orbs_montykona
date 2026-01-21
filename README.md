@@ -97,7 +97,7 @@ Connect your device to WiFi. Once connected, access the interface at:
 ## 🛠️ Hardware Mapping
 
 | Component         | ESP32 Pin | Component       | ESP32 Pin |
-| :---------------- | :-------- | :-------------- | :-------- |
+|:------------------|:----------|:----------------|:----------|
 | **SDA (MOSI)**    | GPIO 17   | **Screen 1 CS** | GPIO 13   |
 | **SCLK**          | GPIO 23   | **Screen 2 CS** | GPIO 33   |
 | **DC**            | GPIO 19   | **Screen 3 CS** | GPIO 32   |
@@ -112,9 +112,9 @@ Connect your device to WiFi. Once connected, access the interface at:
 
 Detailed instructions can be found in the [Firmware Install Guide](references/Firmware%20Install%20Guide.md).
 
-1.  **Preparation**: Copy `firmware/config/config.h.template` to `config.h`.
-2.  **Environment**: Use **PlatformIO** in VS Code.
-3.  **Deploy**: Run the `Upload` task. Assets in the `data` directory are handled by automated scripts.
+1. **Preparation**: Copy `firmware/config/config.h.template` to `config.h`.
+2. **Environment**: Use **PlatformIO** in VS Code.
+3. **Deploy**: Run the `Upload` task. Assets in the `data` directory are handled by automated scripts.
 
 ---
 

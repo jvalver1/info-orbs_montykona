@@ -1,13 +1,13 @@
 #ifndef PARQET_WIDGET_H
 #define PARQET_WIDGET_H
 
+#include "DebugHelper.h"
 #include "GlobalTime.h"
 #include "ParqetDataModel.h"
 #include "ShowMemoryUsage.h"
 #include "Utils.h"
 #include "Widget.h"
 #include "config_helper.h"
-#include "DebugHelper.h"
 
 #ifdef PARQET_DEBUG
     #define PARQET_DEBUG_PRINT(...) PARQET_DEBUG_PRINT_IMPL(__VA_ARGS__, false)

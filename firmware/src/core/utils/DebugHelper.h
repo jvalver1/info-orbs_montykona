@@ -10,32 +10,32 @@ class MainHelper;
 extern bool isDebugEnabled_global();
 
 // Debug macros that check the global debug flag before outputting
-#define DEBUG_PRINT(msg) \
-    do { \
+#define DEBUG_PRINT(msg)               \
+    do {                               \
         if (isDebugEnabled_global()) { \
-            Serial.print(msg); \
-        } \
-    } while(0)
+            Serial.print(msg);         \
+        }                              \
+    } while (0)
 
-#define DEBUG_PRINTLN(msg) \
-    do { \
+#define DEBUG_PRINTLN(msg)             \
+    do {                               \
         if (isDebugEnabled_global()) { \
-            Serial.println(msg); \
-        } \
-    } while(0)
+            Serial.println(msg);       \
+        }                              \
+    } while (0)
 
-#define DEBUG_PRINTF(fmt, ...) \
-    do { \
-        if (isDebugEnabled_global()) { \
+#define DEBUG_PRINTF(fmt, ...)                 \
+    do {                                       \
+        if (isDebugEnabled_global()) {         \
             Serial.printf(fmt, ##__VA_ARGS__); \
-        } \
-    } while(0)
+        }                                      \
+    } while (0)
 
-#define DEBUG_WRITE(data) \
-    do { \
+#define DEBUG_WRITE(data)              \
+    do {                               \
         if (isDebugEnabled_global()) { \
-            Serial.write(data); \
-        } \
-    } while(0)
+            Serial.write(data);        \
+        }                              \
+    } while (0)
 
 #endif // DEBUG_HELPER_H

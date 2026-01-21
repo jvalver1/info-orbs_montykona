@@ -23,7 +23,7 @@
 struct TimeZone {
     std::string locName = "";
     std::string tzInfo = "";
-    std::string flag = "";  // Country flag emoji or code
+    std::string flag = ""; // Country flag emoji or code
     int timeZoneOffset = -1;
     time_t nextTimeZoneUpdate = 0;
     int m_workStart = 9; // Work start hour for this zone
@@ -48,7 +48,7 @@ private:
     void displayZone(int8_t displayIndex, bool force);
     bool isWeekend(int weekday) { return weekday == 1 || weekday == 7; }
     void changeFormat();
-    void drawCountryFlag(const String& countryCode, int x, int y, int width, int height);
+    void drawCountryFlag(const String &countryCode, int x, int y, int width, int height);
 
     TimeZone m_timeZones[MAX_ZONES];
     TimeZone m_localTimeZone;

@@ -3,13 +3,13 @@
 #include "GlobalResources.h"
 #include "MainHelper.h"
 #include "clockwidget/ClockWidget.h"
+#include "eyeswidget/EyesWidget.h"
 #include "matrixwidget/MatrixWidget.h"
 #include "mqttwidget/MQTTWidget.h"
 #include "parqetwidget/ParqetWidget.h"
 #include "stockwidget/StockWidget.h"
 #include "weatherwidget/WeatherWidget.h"
 #include "webdatawidget/WebDataWidget.h"
-#include "eyeswidget/EyesWidget.h"
 #include "wifiwidget/WifiWidget.h"
 #include <ArduinoLog.h>
 
@@ -88,29 +88,29 @@ void setup() {
 
     // Pass references to MainHelper
     MainHelper::init(wifiManager, config, sm, widgetSet);
-    MainHelper::watchdogReset();  // Reset after basic initialization
-    
+    MainHelper::watchdogReset(); // Reset after basic initialization
+
     MainHelper::setupLittleFS();
-    MainHelper::watchdogReset();  // Reset after LittleFS mounting
-    
+    MainHelper::watchdogReset(); // Reset after LittleFS mounting
+
     MainHelper::setupConfig();
-    MainHelper::watchdogReset();  // Reset after config loading
-    
+    MainHelper::watchdogReset(); // Reset after config loading
+
     MainHelper::setupButtons();
     MainHelper::showWelcome();
 
     pinMode(BUSY_PIN, OUTPUT);
     DEBUG_PRINTF("Connecting to WiFi\n");
-    MainHelper::watchdogReset();  // Reset before WiFi connection
-    
+    MainHelper::watchdogReset(); // Reset before WiFi connection
+
     wifiWidget = new WifiWidget(*sm, *config, *wifiManager);
     wifiWidget->setup();
-    MainHelper::watchdogReset();  // Reset after WiFi setup
+    MainHelper::watchdogReset(); // Reset after WiFi setup
 
     globalTime = GlobalTime::getInstance();
     addWidgets();
-    MainHelper::watchdogReset();  // Reset after widget initialization
-    
+    MainHelper::watchdogReset(); // Reset after widget initialization
+
     config->setupWebPortal();
     MainHelper::resetCycleTimer();
 }

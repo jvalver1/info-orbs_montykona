@@ -208,8 +208,8 @@ bool ClockWidget::isValidClockType(int clockType) {
     else if (isCustomClock(clockType)) {
         int customClockNumber = clockType - (int) ClockType::CUSTOM0;
         bool isValid = USE_CLOCK_CUSTOM > customClockNumber && m_customEnabled[customClockNumber];
-        DEBUG_PRINTF("Checking CustomClock%d: USE_CLOCK_CUSTOM=%d, enabled=%d, valid=%d\n", 
-                   customClockNumber, USE_CLOCK_CUSTOM, m_customEnabled[customClockNumber], isValid);
+        DEBUG_PRINTF("Checking CustomClock%d: USE_CLOCK_CUSTOM=%d, enabled=%d, valid=%d\n",
+                     customClockNumber, USE_CLOCK_CUSTOM, m_customEnabled[customClockNumber], isValid);
         return isValid;
     } else
         return false;
@@ -271,11 +271,11 @@ void ClockWidget::displayDigit(int displayIndex, const String &lastDigit, const 
         int defaultY = SCREEN_SIZE / 2;
         DigitOffset digitOffset = getOffsetForDigit(digit);
         m_manager.selectScreen(displayIndex);
-        
+
         // Clear the entire screen area for this digit to prevent ghosting
         // This is necessary because different digits have different offsets
         m_manager.fillRect(0, 0, SCREEN_SIZE, SCREEN_SIZE, TFT_BLACK);
-        
+
         if (shadowing) {
             m_manager.setFontColor(m_shadowColor, TFT_BLACK);
             if (CLOCK_FONT == DSEG14) {

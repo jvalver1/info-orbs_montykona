@@ -4,12 +4,12 @@
 #include "DebugHelper.h"
 
 #ifdef MEMORY_DEBUG_INTERVAL
-    #define SHOW_MEMORY_USAGE(msg)                 \
-        do {                                       \
-            DEBUG_PRINT(" --- ");                  \
-            DEBUG_PRINTLN(msg);                    \
-            ShowMemoryUsage::printSerial(false);   \
-            DEBUG_PRINTLN();                       \
+    #define SHOW_MEMORY_USAGE(msg)               \
+        do {                                     \
+            DEBUG_PRINT(" --- ");                \
+            DEBUG_PRINTLN(msg);                  \
+            ShowMemoryUsage::printSerial(false); \
+            DEBUG_PRINTLN();                     \
         } while (0)
 #else
     #define SHOW_MEMORY_USAGE(msg) // No-op
