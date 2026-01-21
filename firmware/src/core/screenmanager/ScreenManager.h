@@ -84,6 +84,10 @@ public:
     JRESULT drawJpg(int32_t x, int32_t y, const uint8_t jpeg_data[], uint32_t data_size, uint8_t scale = 1, uint32_t imageColor = 0);
     JRESULT drawFsJpg(int32_t x, int32_t y, const char *filename, uint8_t scale = 1, uint32_t imageColor = 0);
 
+    // Set transparent color for next JPG drawing
+    void setTransparentColor(uint16_t color) { m_transparentColor = color; }
+    void resetTransparentColor() { m_transparentColor = 0xFFFF; }
+
     // Additional functions used by MatrixWidget
     int16_t width();
     int16_t height();
@@ -105,6 +109,7 @@ private:
     TTF_Font m_curFont = TTF_Font::NONE;
     uint8_t m_brightness = TFT_BRIGHTNESS;
     uint32_t m_imageColor = 0;
+    uint16_t m_transparentColor = 0xFFFF; // 0xFFFF means no transparency
 
     TFT_eSPI &getDisplay();
     OpenFontRender &getRender();

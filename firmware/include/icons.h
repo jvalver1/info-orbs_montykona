@@ -34,6 +34,18 @@ extern const byte rainB_start[] asm("_binary_images_weather_dark_rainB_jpg_start
 extern const byte rainB_end[] asm("_binary_images_weather_dark_rainB_jpg_end");
 extern const byte cloudsB_start[] asm("_binary_images_weather_dark_cloudsB_jpg_start");
 extern const byte cloudsB_end[] asm("_binary_images_weather_dark_cloudsB_jpg_end");
+extern const byte eye_white_L_start[] asm("_binary_images_eyes_eye_white_L_jpg_start");
+extern const byte eye_white_L_end[] asm("_binary_images_eyes_eye_white_L_jpg_end");
+extern const byte eye_white_R_start[] asm("_binary_images_eyes_eye_white_R_jpg_start");
+extern const byte eye_white_R_end[] asm("_binary_images_eyes_eye_white_R_jpg_end");
+extern const byte eye_iris_start[] asm("_binary_images_eyes_iris_jpg_start");
+extern const byte eye_iris_end[] asm("_binary_images_eyes_iris_jpg_end");
+extern const byte eye_nose_start[] asm("_binary_images_eyes_nose_jpg_start");
+extern const byte eye_nose_end[] asm("_binary_images_eyes_nose_jpg_end");
+extern const byte eye_eyelid_start[] asm("_binary_images_eyes_eyelid_jpg_start");
+extern const byte eye_eyelid_end[] asm("_binary_images_eyes_eyelid_jpg_end");
+extern const byte eye_eyelid_mirrored_start[] asm("_binary_images_eyes_eyelid_mirrored_jpg_start");
+extern const byte eye_eyelid_mirrored_end[] asm("_binary_images_eyes_eyelid_mirrored_jpg_end");
 extern const byte logo_start[] asm("_binary_images_logo_jpg_start");
 extern const byte logo_end[] asm("_binary_images_logo_jpg_end");
 

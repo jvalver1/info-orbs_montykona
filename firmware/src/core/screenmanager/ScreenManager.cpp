@@ -377,7 +377,12 @@ bool ScreenManager::tftOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint
         // Dim bitmap
         Utils::rgb565dimBitmap(bitmap, w * h, brightness, true);
     }
-    tft.pushImage(x, y, w, h, bitmap);
+
+    if (instance->m_transparentColor != 0xFFFF) {
+        tft.pushImage(x, y, w, h, bitmap, instance->m_transparentColor);
+    } else {
+        tft.pushImage(x, y, w, h, bitmap);
+    }
     return true;
 }
 

@@ -56,3 +56,27 @@ constexpr Translation t_eyesPupilMoveMax = {
     "Max. Pupillenbewegungsintervall (ms)", // DE
     "Intervalle max de mouvement de la pupille (ms)", // FR
 };
+
+constexpr Translation t_eyesShowNose = {
+    "Show Nose", // EN
+    "Nase anzeigen", // DE
+    "Afficher le nez", // FR
+};
+
+constexpr Translation t_eyesLongCloseMin = {
+    "Min. Closed Eyes Interval (ms)", // EN
+    "Min. Geschlossene Augen Intervall (ms)", // DE
+    "Intervalle min yeux fermés (ms)", // FR
+};
+
+constexpr Translation t_eyesLongCloseMax = {
+    "Max. Closed Eyes Interval (ms)", // EN
+    "Max. Geschlossene Augen Intervall (ms)", // DE
+    "Intervalle max yeux fermés (ms)", // FR
+};
+
+constexpr Translation t_eyesLongCloseDuration = {
+    "Closed Eyes Duration (ms)", // EN
+    "Geschlossene Augen Dauer (ms)", // DE
+    "Durée des yeux fermés (ms)", // FR
+};

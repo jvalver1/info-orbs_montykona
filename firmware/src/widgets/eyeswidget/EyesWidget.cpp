@@ -1,5 +1,6 @@
 #include "EyesWidget.h"
 #include "EyesTranslations.h"
+#include "icons.h"
 #include <Arduino.h>
 
 EyesWidget::EyesWidget(ScreenManager &manager, ConfigManager &config) : Widget(manager, config) {
@@ -11,12 +12,15 @@ EyesWidget::EyesWidget(ScreenManager &manager, ConfigManager &config) : Widget(m
     m_config.addConfigColor("Eyes Widget", "eyesIrisColor", &m_irisColor, t_eyesIrisColor, false);
     m_config.addConfigColor("Eyes Widget", "eyesPupilColor", &m_pupilColor, t_eyesPupilColor, false);
     m_config.addConfigColor("Eyes Widget", "eyesEyelidColor", &m_eyelidColor, t_eyesEyelidColor, false);
+    m_config.addConfigBool("Eyes Widget", "eyesShowNose", &m_noseEnabled, t_eyesShowNose, false);
 
     // Add interval configuration (advanced settings)
-    m_config.addConfigInt("Eyes Widget", "eyesBlinkMin", &m_blinkMinInterval, t_eyesBlinkMin, true);
-    m_config.addConfigInt("Eyes Widget", "eyesBlinkMax", &m_blinkMaxInterval, t_eyesBlinkMax, true);
-    m_config.addConfigInt("Eyes Widget", "eyesPupilMin", &m_pupilMoveMinInterval, t_eyesPupilMoveMin, true);
     m_config.addConfigInt("Eyes Widget", "eyesPupilMax", &m_pupilMoveMaxInterval, t_eyesPupilMoveMax, true);
+
+    // New "Closed Eyes" configuration
+    m_config.addConfigInt("Eyes Widget", "eyesLongCloseMin", &m_longCloseMinInterval, t_eyesLongCloseMin, true);
+    m_config.addConfigInt("Eyes Widget", "eyesLongCloseMax", &m_longCloseMaxInterval, t_eyesLongCloseMax, true);
+    m_config.addConfigInt("Eyes Widget", "eyesLongCloseDur", &m_longCloseDurationMin, t_eyesLongCloseDuration, true);
 }
 
 void EyesWidget::setup() {
@@ -25,10 +29,10 @@ void EyesWidget::setup() {
 
     // Set initial random delays
     m_nextPupilMoveDelay = randomInterval(m_pupilMoveMinInterval, m_pupilMoveMaxInterval);
-    m_nextBlinkDelay = randomInterval(m_blinkMinInterval, m_blinkMaxInterval);
+    m_nextLongCloseDelay = randomInterval(m_longCloseMinInterval, m_longCloseMaxInterval);
 
     m_lastPupilMoveTime = millis();
-    m_lastBlinkTime = millis();
+    m_lastLongCloseTime = millis();
     m_lastBlinkFrameTime = millis();
     m_firstDraw = true;
 }
@@ -43,17 +47,20 @@ void EyesWidget::update(bool force) {
         m_lastPupilMoveTime = currentTime;
         m_nextPupilMoveDelay = randomInterval(m_pupilMoveMinInterval, m_pupilMoveMaxInterval);
         stateChanged = true;
+        m_pupilJustMoved = true; // Set flag to force both eyes redraw
     }
 
-    // Update blink state
-    if (currentTime - m_lastBlinkTime >= m_nextBlinkDelay) {
-        if (m_blinkState == BlinkState::OPEN) {
-            // Start a new blink
+    // Update blink state - trigger ONLY on long close timer
+    if (m_blinkState == BlinkState::OPEN) {
+        if (currentTime - m_lastLongCloseTime >= m_nextLongCloseDelay) {
+            m_isLongClose = true;
+            m_currentClosedDuration = randomInterval(m_longCloseDurationMin, m_longCloseDurationMax);
+            
             m_blinkState = BlinkState::CLOSING;
             m_blinkStartTime = currentTime;
-            m_lastBlinkTime = currentTime;
+            m_lastLongCloseTime = currentTime;
             m_lastBlinkFrameTime = currentTime;
-            m_nextBlinkDelay = randomInterval(m_blinkMinInterval, m_blinkMaxInterval);
+            m_nextLongCloseDelay = randomInterval(m_longCloseMinInterval, m_longCloseMaxInterval);
             stateChanged = true;
         }
     }
@@ -67,9 +74,11 @@ void EyesWidget::update(bool force) {
             updateBlinkState();
             m_lastBlinkFrameTime = currentTime;
 
-            // Check if blink animation is active (progress changed)
-            if (abs(m_blinkProgress - prevBlinkProgress) > 0.001f) {
-                stateChanged = true;
+            // During any blink animation phase, only redraw the blinking eye
+            // unless a pupil move was just triggered in this same loop iteration
+            stateChanged = true;
+            if (!m_pupilJustMoved) {
+                m_blinkRedrawOnly = true;
             }
         }
     } else {
@@ -79,6 +88,13 @@ void EyesWidget::update(bool force) {
     // Set redraw flag if state changed or forced
     if (stateChanged || force) {
         m_needsRedraw = true;
+    }
+
+    // Reset flags at the start of update to ensure they only persist for one draw cycle
+    // (Actually, they should be set in update and reset in draw)
+    if (currentTime - m_lastPupilMoveTime < 100) { // Catch the frame where it changed
+        // This is a bit tricky with how update/draw are called.
+        // Let's use the stateChanged from pupil move.
     }
 }
 
@@ -103,17 +119,31 @@ void EyesWidget::draw(bool force) {
         m_manager.fillScreen(TFT_BLACK);
         drawEye(3, centerX, centerY);
 
-        // Draw nose on screen 3 (middle screen - index 2)
+        // Draw nose on screen 2 (middle screen) if enabled, otherwise clear it
         m_manager.selectScreen(2);
         m_manager.fillScreen(TFT_BLACK);
-        drawNose(2);
+        if (m_noseEnabled) {
+            drawNose(2);
+        }
 
         m_firstDraw = false;
     } else {
         // Incremental update: only redraw changed parts
-        drawEye(1, centerX, centerY);
-        drawEye(3, centerX, centerY);
-        // Nose doesn't animate, so no need to redraw
+        
+        if (m_pupilJustMoved || force) {
+            // Pupil moved: must redraw both eyes to ensure they are in sync
+            drawEye(1, centerX, centerY);
+            drawEye(3, centerX, centerY);
+            m_pupilJustMoved = false;
+        } else if (m_blinkProgress > 0 || m_previousBlinkProgress > 0) {
+            // During blink, update both eyes
+            drawEye(1, centerX, centerY);
+            drawEye(3, centerX, centerY);
+        } else {
+            // Default: redraw both if needsRedraw is set for some other reason
+            drawEye(1, centerX, centerY);
+            drawEye(3, centerX, centerY);
+        }
     }
 
     // Update previous state
@@ -133,63 +163,40 @@ String EyesWidget::getName() {
 void EyesWidget::drawEye(int screenIndex, int centerX, int centerY) {
     m_manager.selectScreen(screenIndex);
 
+    // Choose the correct background based on screen index (Screen 1 is Left, Screen 3 is Right)
+    const byte *eyeBgStart = (screenIndex == 1) ? eye_white_L_start : eye_white_R_start;
+    uint32_t eyeBgSize = (screenIndex == 1) ? (eye_white_L_end - eye_white_L_start) : (eye_white_R_end - eye_white_R_start);
+
     // On first draw or if not initialized, draw the complete eye
     if (m_firstDraw) {
-        // Draw the eye white (sclera)
-        m_manager.fillCircle(centerX, centerY, EYE_RADIUS, m_eyeColor);
-        m_manager.drawCircle(centerX, centerY, EYE_RADIUS, TFT_BLACK);
+        // Draw the photorealistic eye white and surrounding skin (mirrored for left/right)
+        m_manager.drawJpg(0, 0, eyeBgStart, eyeBgSize);
 
-        // Get pupil offset based on current position
+        // Draw iris and pupil
         int pupilOffsetX = getPupilOffsetX();
-
-        // Draw iris
-        m_manager.fillCircle(centerX + pupilOffsetX, centerY, IRIS_RADIUS, m_irisColor);
-
-        // Draw pupil
-        drawPupil(screenIndex, centerX, centerY, pupilOffsetX);
+        m_manager.setTransparentColor(TFT_BLACK); // Iris JPG has black background
+        m_manager.drawJpg(centerX + pupilOffsetX - IRIS_RADIUS, centerY - IRIS_RADIUS, eye_iris_start, eye_iris_end - eye_iris_start);
+        m_manager.resetTransparentColor();
 
         // Always draw eyelid (visible even when open at 0% blink)
         drawEyelid(screenIndex, centerX, centerY, m_blinkProgress);
     } else {
         // Incremental update: only redraw what changed
 
-        // If pupil position changed, erase old and draw new
-        if (m_pupilPosition != m_previousPupilPosition) {
-            int oldPupilOffsetX = (m_previousPupilPosition == PupilPosition::LEFT) ? -PUPIL_MOVE_RANGE : (m_previousPupilPosition == PupilPosition::RIGHT) ? PUPIL_MOVE_RANGE
-                                                                                                                                                           : 0;
-            int newPupilOffsetX = getPupilOffsetX();
+        // If pupil position changed or blink changed, we redraw the relevant parts
+        if (m_pupilPosition != m_previousPupilPosition || abs(m_blinkProgress - m_previousBlinkProgress) > 0.01f) {
+            // Since we use JPG assets and transparency, it's safer to redraw the background
+            m_manager.drawJpg(0, 0, eyeBgStart, eyeBgSize);
 
-            // Erase old iris/pupil by drawing eye color
-            m_manager.fillCircle(centerX + oldPupilOffsetX, centerY, IRIS_RADIUS, m_eyeColor);
-
-            // Draw new iris
-            m_manager.fillCircle(centerX + newPupilOffsetX, centerY, IRIS_RADIUS, m_irisColor);
-
-            // Draw new pupil
-            drawPupil(screenIndex, centerX, centerY, newPupilOffsetX);
-        }
-
-        // Handle eyelid animation (need to redraw entire eye area for smooth animation)
-        if (abs(m_blinkProgress - m_previousBlinkProgress) > 0.01f) {
-            // If we're blinking, we need to redraw the eye
-            // First, redraw the base eye without eyelid
             int pupilOffsetX = getPupilOffsetX();
+            m_manager.setTransparentColor(TFT_BLACK);
+            m_manager.drawJpg(centerX + pupilOffsetX - IRIS_RADIUS, centerY - IRIS_RADIUS, eye_iris_start, eye_iris_end - eye_iris_start);
+            m_manager.resetTransparentColor();
 
-            // Only redraw if opening from a blink (erase eyelid area)
-            if (m_blinkProgress < m_previousBlinkProgress || m_blinkProgress > 0.01f) {
-                // Redraw eye background
-                m_manager.fillCircle(centerX, centerY, EYE_RADIUS, m_eyeColor);
-                m_manager.drawCircle(centerX, centerY, EYE_RADIUS, TFT_BLACK);
-
-                // Redraw iris and pupil
-                m_manager.fillCircle(centerX + pupilOffsetX, centerY, IRIS_RADIUS, m_irisColor);
-                drawPupil(screenIndex, centerX, centerY, pupilOffsetX);
-            }
-
-            // Always draw eyelid overlay (even at 0% for visible top lid)
+            // Draw eyelid based on blink progress
             drawEyelid(screenIndex, centerX, centerY, m_blinkProgress);
         } else {
-            // Even if blink didn't change, always show eyelid
+            // Even if nothing changed, ensure eyelid is visible (at its current state)
             drawEyelid(screenIndex, centerX, centerY, m_blinkProgress);
         }
     }
@@ -202,99 +209,7 @@ void EyesWidget::drawPupil(int screenIndex, int centerX, int centerY, int offset
 
 void EyesWidget::drawNose(int screenIndex) {
     m_manager.selectScreen(screenIndex);
-
-    int screenWidth = 240;
-    int screenHeight = 240;
-    int centerX = screenWidth / 2; // 120
-
-    // Nose dimensions - rounded bulbous shape (max 80 pixels tall)
-    int noseHeight = 75;
-    int noseWidth = 105; // Maximum width at widest point (increased for cartoonish look)
-    int noseY = screenHeight - noseHeight - 15; // Position from bottom
-
-    // Base skin tone colors
-    int baseColor = 0xFDC0; // Main skin tone
-    int shadowColor = 0xE48A; // Darker for right side shadow
-    int highlightColor = 0xFEE0; // Lighter for left highlight
-    int outlineColor = 0x8221; // Dark brown outline
-
-    // Draw the bulbous shape using horizontal lines with varying widths
-    // The shape is wider in the middle-bottom and narrower at top
-    for (int y = 0; y < noseHeight; y++) {
-        float progress = (float) y / noseHeight;
-
-        // Create bulbous shape with rounder edges
-        float widthFactor;
-        if (progress < 0.65f) {
-            // Expanding from top to middle - smoother curve
-            widthFactor = progress / 0.65f; // 0 to 1
-            widthFactor = widthFactor * widthFactor * (3.0f - 2.0f * widthFactor); // Smoothstep for rounder edges
-        } else {
-            // Contracting from middle to bottom - gentler taper
-            float t = (progress - 0.65f) / 0.35f; // 0 to 1
-            widthFactor = 1.0f - (t * t * 0.25f); // Stay wide at bottom, quadratic falloff
-        }
-
-        int halfWidth = (int) (noseWidth * widthFactor / 2);
-
-        if (halfWidth > 0) {
-            int currentY = noseY + y;
-
-            // Draw with gradient: highlight on left, shadow on right
-            for (int x = -halfWidth; x <= halfWidth; x++) {
-                int color;
-                float xProgress = (float) x / halfWidth; // -1 to 1
-
-                if (xProgress < -0.3f) {
-                    // Left side - highlight
-                    color = highlightColor;
-                } else if (xProgress > 0.4f) {
-                    // Right side - shadow
-                    color = shadowColor;
-                } else {
-                    // Middle - base color
-                    color = baseColor;
-                }
-
-                m_manager.drawLine(centerX + x, currentY, centerX + x, currentY, color);
-            }
-
-            // Draw dark outline on edges
-            m_manager.drawLine(centerX - halfWidth, currentY, centerX - halfWidth, currentY, outlineColor);
-            m_manager.drawLine(centerX + halfWidth, currentY, centerX + halfWidth, currentY, outlineColor);
-        }
-    }
-
-    // Draw top and bottom outline curves
-    // Top outline
-    for (int x = -15; x <= 15; x++) {
-        int y = noseY + (int) (2.0f * sqrt(abs(15 - abs(x))));
-        if (y < noseY + 10) {
-            m_manager.drawLine(centerX + x, y, centerX + x, y, outlineColor);
-        }
-    }
-
-    // Draw nostrils (dark brown ovals) - larger for cartoonish effect
-    int nostrilY = noseY + noseHeight - 12; // 12 pixels from bottom
-    int nostrilSpacing = 20; // Distance from center (wider spacing)
-
-    // Left nostril - draw as filled ellipse using circles (larger)
-    for (int dy = -8; dy <= 8; dy++) {
-        int width = (int) (6.0f * sqrt(64 - dy * dy) / 8.0f);
-        for (int dx = -width; dx <= width; dx++) {
-            m_manager.drawLine(centerX - nostrilSpacing + dx, nostrilY + dy,
-                               centerX - nostrilSpacing + dx, nostrilY + dy, outlineColor);
-        }
-    }
-
-    // Right nostril (larger)
-    for (int dy = -8; dy <= 8; dy++) {
-        int width = (int) (6.0f * sqrt(64 - dy * dy) / 8.0f);
-        for (int dx = -width; dx <= width; dx++) {
-            m_manager.drawLine(centerX + nostrilSpacing + dx, nostrilY + dy,
-                               centerX + nostrilSpacing + dx, nostrilY + dy, outlineColor);
-        }
-    }
+    m_manager.drawJpg(0, 0, eye_nose_start, eye_nose_end - eye_nose_start);
 }
 
 void EyesWidget::drawEyelid(int screenIndex, int centerX, int centerY, float closePercent) {
@@ -303,58 +218,25 @@ void EyesWidget::drawEyelid(int screenIndex, int centerX, int centerY, float clo
     // Apply easing for more natural movement
     float easedPercent = easeInOutQuad(closePercent);
 
-    // Calculate how much of the eye to cover
-    // When fully open, show a small eyelid curve at top (8% of eye)
-    // When fully closed, cover entire eye
-    float minEyelidVisible = 0.08f; // Always show 8% eyelid at top
-    float actualClosePercent = minEyelidVisible + (easedPercent * (1.0f - minEyelidVisible));
+    // Calculate vertical position for the eyelid JPG
+    // When open (0%), it should be just off-screen or at the very top
+    // When closed (100%), it should be fully centered
+    int eyelidHeight = 240;
+    int yOffset = -eyelidHeight + (int)(eyelidHeight * easedPercent);
+    
+    // Always show or hide based on offset
+    // User wants no eyelid portion visible when open
+    // if (yOffset < -220) yOffset = -220; 
 
-    int coverHeight = (int) (EYE_RADIUS * 2 * actualClosePercent);
+    const byte *eyelidStart = (screenIndex == 1) ? eye_eyelid_start : eye_eyelid_mirrored_start;
+    uint32_t eyelidSize = (screenIndex == 1) ? (eye_eyelid_end - eye_eyelid_start) : (eye_eyelid_mirrored_end - eye_eyelid_mirrored_start);
 
-    // Draw top eyelid
-    if (coverHeight > 0) {
-        int topY = centerY - EYE_RADIUS;
-
-        // Draw eyelid with slight curve for more realistic look
-        for (int i = 0; i <= coverHeight; i++) {
-            int y = topY + i;
-            int dy = y - centerY;
-
-            if (abs(dy) <= EYE_RADIUS) {
-                // Base width from circle equation
-                int dx = (int) sqrt(EYE_RADIUS * EYE_RADIUS - dy * dy);
-
-                // Add slight curve to eyelid edge for more natural look
-                // The curve is more pronounced near the edges
-                float normalizedI = (float) i / coverHeight;
-                int curveAdjust = (int) (2.0f * sin(normalizedI * 3.14159f));
-
-                m_manager.drawLine(centerX - dx, y, centerX + dx, y, m_eyelidColor);
-
-                // Draw eyelid outline at the edge for definition
-                if (i == coverHeight && coverHeight < EYE_RADIUS * 2) {
-                    // Slightly darker outline for eyelid edge
-                    int outlineColor = 0xD69A; // Slightly darker skin tone
-                    m_manager.drawLine(centerX - dx + 2, y, centerX + dx - 2, y, outlineColor);
-                }
-            }
-        }
-    }
-
-    // Draw bottom eyelid (only when blinking significantly)
-    if (easedPercent > 0.3f) { // Only show bottom lid when more than 30% closed
-        int bottomCoverHeight = (int) (coverHeight * 0.6f); // Bottom lid moves less
-
-        for (int i = 0; i <= bottomCoverHeight; i++) {
-            int y = centerY + EYE_RADIUS - i;
-            int dy = y - centerY;
-
-            if (abs(dy) <= EYE_RADIUS) {
-                int dx = (int) sqrt(EYE_RADIUS * EYE_RADIUS - dy * dy);
-                m_manager.drawLine(centerX - dx, y, centerX + dx, y, m_eyelidColor);
-            }
-        }
-    }
+    // Draw the photorealistic eyelid JPG sliding down
+    // We use transparency (black) so it overlaps nicely with the eye background if needed
+    // However, the eyelid image itself usually covers the whole width
+    m_manager.setTransparentColor(TFT_BLACK);
+    m_manager.drawJpg(0, yOffset, eyelidStart, eyelidSize);
+    m_manager.resetTransparentColor();
 }
 
 void EyesWidget::updatePupilPosition() {
@@ -394,7 +276,7 @@ void EyesWidget::updateBlinkState() {
 
     case BlinkState::CLOSED:
         m_blinkProgress = 1.0f;
-        if (elapsed >= BLINK_CLOSED_DURATION) {
+        if (elapsed >= m_currentClosedDuration) {
             m_blinkState = BlinkState::OPENING;
             m_blinkStartTime = currentTime;
         }

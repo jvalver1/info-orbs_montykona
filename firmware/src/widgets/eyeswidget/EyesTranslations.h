@@ -14,5 +14,9 @@ extern Translation t_eyesBlinkMin;
 extern Translation t_eyesBlinkMax;
 extern Translation t_eyesPupilMoveMin;
 extern Translation t_eyesPupilMoveMax;
+extern Translation t_eyesShowNose;
+extern Translation t_eyesLongCloseMin;
+extern Translation t_eyesLongCloseMax;
+extern Translation t_eyesLongCloseDuration;
 
 #endif // EYESTRANSLATIONS_H
