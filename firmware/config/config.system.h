@@ -157,6 +157,9 @@
 #ifndef INCLUDE_MATRIXSCREEN
     #define INCLUDE_MATRIXSCREEN WIDGET_OFF
 #endif
+#ifndef INCLUDE_EYES
+    #define INCLUDE_EYES WIDGET_OFF
+#endif
 
 // CLOCK WIDGET SETTINGS
 #ifndef FORMAT_24_HOUR
@@ -227,6 +230,72 @@
 #endif
 #ifndef WEATHER_TEMPEST_API_KEY
     #define WEATHER_TEMPEST_API_KEY "20c70eae-e62f-4d3b-b3a4-8586e90f3ac8"
+#endif
+
+// 5 ZONE WIDGET DEFAULTS
+#ifndef ZONE_0_NAME
+    #define ZONE_0_NAME ""
+#endif
+#ifndef ZONE_0_TIMEZONE
+    #define ZONE_0_TIMEZONE ""
+#endif
+#ifndef ZONE_0_OFFSET
+    #define ZONE_0_OFFSET 0
+#endif
+#ifndef ZONE_0_FLAG
+    #define ZONE_0_FLAG ""
+#endif
+
+#ifndef ZONE_1_NAME
+    #define ZONE_1_NAME ""
+#endif
+#ifndef ZONE_1_TIMEZONE
+    #define ZONE_1_TIMEZONE ""
+#endif
+#ifndef ZONE_1_OFFSET
+    #define ZONE_1_OFFSET 0
+#endif
+#ifndef ZONE_1_FLAG
+    #define ZONE_1_FLAG ""
+#endif
+
+#ifndef ZONE_2_NAME
+    #define ZONE_2_NAME ""
+#endif
+#ifndef ZONE_2_TIMEZONE
+    #define ZONE_2_TIMEZONE ""
+#endif
+#ifndef ZONE_2_OFFSET
+    #define ZONE_2_OFFSET 0
+#endif
+#ifndef ZONE_2_FLAG
+    #define ZONE_2_FLAG ""
+#endif
+
+#ifndef ZONE_3_NAME
+    #define ZONE_3_NAME ""
+#endif
+#ifndef ZONE_3_TIMEZONE
+    #define ZONE_3_TIMEZONE ""
+#endif
+#ifndef ZONE_3_OFFSET
+    #define ZONE_3_OFFSET 0
+#endif
+#ifndef ZONE_3_FLAG
+    #define ZONE_3_FLAG ""
+#endif
+
+#ifndef ZONE_4_NAME
+    #define ZONE_4_NAME ""
+#endif
+#ifndef ZONE_4_TIMEZONE
+    #define ZONE_4_TIMEZONE ""
+#endif
+#ifndef ZONE_4_OFFSET
+    #define ZONE_4_OFFSET 0
+#endif
+#ifndef ZONE_4_FLAG
+    #define ZONE_4_FLAG ""
 #endif
 
 // STOCK WIDGET SETTINGS

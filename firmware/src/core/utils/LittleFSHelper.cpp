@@ -1,4 +1,5 @@
 #include "LittleFSHelper.h"
+#include "DebugHelper.h"
 #include <ArduinoLog.h>
 
 bool LittleFSHelper::begin() {
@@ -10,7 +11,7 @@ bool LittleFSHelper::begin() {
             return false;
         }
     }
-    Log.infoln("LittleFS mounted successfully.");
+    DEBUG_PRINTF("LittleFS mounted successfully.\n");
     return true;
 }
 
@@ -22,7 +23,7 @@ void LittleFSHelper::writeFile(const char *path, const char *message) {
     }
     file.print(message);
     file.close();
-    Log.infoln("File written successfully.");
+    DEBUG_PRINTF("File written successfully.\n");
 }
 
 void LittleFSHelper::readFile(const char *path) {
@@ -31,7 +32,7 @@ void LittleFSHelper::readFile(const char *path) {
         Log.warningln("Failed to open file for reading");
         return;
     }
-    Log.infoln("Reading file: %s", path);
+    DEBUG_PRINTF("Reading file: %s\n", path);
     while (file.available()) {
         Serial.write(file.read());
     }
@@ -40,7 +41,7 @@ void LittleFSHelper::readFile(const char *path) {
 
 void LittleFSHelper::deleteFile(const char *path) {
     if (LittleFS.remove(path)) {
-        Log.infoln("File deleted successfully.");
+        DEBUG_PRINTF("File deleted successfully.\n");
     } else {
         Log.warningln("Failed to delete file.");
     }
@@ -65,10 +66,10 @@ void LittleFSHelper::listFilesRecursively(const char *dirname) {
             // Recursive call for subdirectories
             char fullPath[128];
             snprintf(fullPath, sizeof(fullPath), "%s/%s", dirname, file.name());
-            Log.infoln("Directory: %s", fullPath);
+            DEBUG_PRINTF("Directory: %s\n", fullPath);
             listFilesRecursively(fullPath);
         } else {
-            Log.infoln("File: %s/%s, Size: %d", dirname, file.name(), file.size());
+            DEBUG_PRINTF("File: %s/%s, Size: %d\n", dirname, file.name(), file.size());
         }
         file = root.openNextFile();
     }

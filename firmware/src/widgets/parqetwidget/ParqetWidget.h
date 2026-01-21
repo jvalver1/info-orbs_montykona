@@ -7,6 +7,7 @@
 #include "Utils.h"
 #include "Widget.h"
 #include "config_helper.h"
+#include "DebugHelper.h"
 
 #ifdef PARQET_DEBUG
     #define PARQET_DEBUG_PRINT(...) PARQET_DEBUG_PRINT_IMPL(__VA_ARGS__, false)
@@ -15,7 +16,7 @@
             char buffer[128];                                     \
             snprintf(buffer, sizeof(buffer), msg, ##__VA_ARGS__); \
             if (buffer[0] != '\0') {                              \
-                Serial.println(buffer);                           \
+                DEBUG_PRINTLN(buffer);                            \
             }                                                     \
         } while (0)
     #define PARQET_DEBUG_PRINT_MEM(...) PARQET_DEBUG_PRINT_MEM_IMPL(__VA_ARGS__, false)

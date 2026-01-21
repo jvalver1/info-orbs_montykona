@@ -1,6 +1,7 @@
 #include "GlobalTime.h"
 
 #include "ConfigManager.h"
+#include "DebugHelper.h"
 #include "Translations.h"
 #include "config_helper.h"
 #include <ArduinoJson.h>
@@ -13,7 +14,7 @@ GlobalTime::GlobalTime() {
     m_timezoneLocation = cm->getConfigString("timezoneLoc", m_timezoneLocation); // config added in MainHelper
     int clockFormat = cm->getConfigInt("clockFormat", CLOCK_FORMAT); // config added in ClockWidget
     m_ntpServer = cm->getConfigString("ntpServer", m_ntpServer); // config added in MainHelper
-    Log.infoln("GlobalTime initialized, tzLoc=%s, clockFormat=%d, ntpServer=%s", m_timezoneLocation.c_str(), clockFormat, m_ntpServer.c_str());
+    DEBUG_PRINTF("GlobalTime initialized, tzLoc=%s, clockFormat=%d, ntpServer=%s\n", m_timezoneLocation.c_str(), clockFormat, m_ntpServer.c_str());
     m_format24hour = (clockFormat == CLOCK_FORMAT_24_HOUR);
     m_timeClient = new NTPClient(m_udp, m_ntpServer.c_str(), 0, m_updateInterval);
     m_timeClient->begin();
@@ -40,9 +41,10 @@ void GlobalTime::updateTime(bool force) {
         m_timeClient->update();
         if (m_timeClient->isTimeSet()) {
             // NTP time is valid
-            if (m_timeZoneOffset == -1 || (m_nextTimeZoneUpdate > 0 && m_unixEpoch > m_nextTimeZoneUpdate)) {
-                getTimeZoneOffsetFromAPI();
-            }
+            // Timezone API calls disabled - using NTP time offset
+            // if (m_timeZoneOffset == -1 || (m_nextTimeZoneUpdate > 0 && m_unixEpoch > m_nextTimeZoneUpdate)) {
+            //     getTimeZoneOffsetFromAPI();
+            // }
             m_unixEpoch = m_timeClient->getEpochTime();
             m_minute = minute(m_unixEpoch);
             if (m_format24hour) {
@@ -146,46 +148,9 @@ bool GlobalTime::isPM() {
 }
 
 void GlobalTime::getTimeZoneOffsetFromAPI() {
-    HTTPClient http;
-    http.begin(String(TIMEZONE_API_URL) + "?timeZone=" + String(m_timezoneLocation.c_str()));
-
-    int httpCode = http.GET();
-
-    if (httpCode > 0) {
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, http.getString());
-        if (!error) {
-            m_timeZoneOffset = doc["currentUtcOffset"]["seconds"].as<int>();
-            if (doc["hasDayLightSaving"].as<bool>()) {
-                String dstStart = doc["dstInterval"]["dstStart"].as<String>();
-                String dstEnd = doc["dstInterval"]["dstEnd"].as<String>();
-                bool dstActive = doc["isDayLightSavingActive"].as<bool>();
-                tmElements_t m_temp_t;
-                if (dstActive) {
-                    m_temp_t.Year = dstEnd.substring(0, 4).toInt() - 1970;
-                    m_temp_t.Month = dstEnd.substring(5, 7).toInt();
-                    m_temp_t.Day = dstEnd.substring(8, 10).toInt();
-                    m_temp_t.Hour = dstEnd.substring(11, 13).toInt();
-                    m_temp_t.Minute = dstEnd.substring(14, 16).toInt();
-                    m_temp_t.Second = dstEnd.substring(17, 19).toInt();
-                } else {
-                    m_temp_t.Year = dstStart.substring(0, 4).toInt() - 1970;
-                    m_temp_t.Month = dstStart.substring(5, 7).toInt();
-                    m_temp_t.Day = dstStart.substring(8, 10).toInt();
-                    m_temp_t.Hour = dstStart.substring(11, 13).toInt();
-                    m_temp_t.Minute = dstStart.substring(14, 16).toInt();
-                    m_temp_t.Second = dstStart.substring(17, 19).toInt();
-                }
-                m_nextTimeZoneUpdate = makeTime(m_temp_t) + random(5 * 60); // Randomize update by 5 minutes to avoid flooding the API;
-            }
-            Log.infoln("Timezone Offset from API: %d; Next timezone update: %d", m_timeZoneOffset, m_nextTimeZoneUpdate);
-            m_timeClient->setTimeOffset(m_timeZoneOffset);
-        } else {
-            Log.warningln("Deserialization error on timezone offset API response");
-        }
-    } else {
-        Log.warningln("Failed to get timezone offset from API");
-    }
+    // API calls disabled - SSL connection failures, timezone managed by NTP
+    DEBUG_PRINTF("Timezone API disabled - using NTP offset\n");
+    return;
 }
 
 bool GlobalTime::getFormat24Hour() {

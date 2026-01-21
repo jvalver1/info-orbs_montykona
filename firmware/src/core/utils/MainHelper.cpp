@@ -1,4 +1,5 @@
 #include "MainHelper.h"
+#include "DebugHelper.h"
 #include "LittleFSHelper.h"
 #include "Translations.h"
 #include "config_helper.h"
@@ -28,6 +29,7 @@ static int s_dimStartHour = DIM_START_HOUR;
 static int s_dimEndHour = DIM_END_HOUR;
 static int s_dimBrightness = DIM_BRIGHTNESS;
 static int s_languageId = DEFAULT_LANGUAGE;
+static bool s_debugEnabled = false;
 
 void MainHelper::init(WiFiManager *wm, ConfigManager *cm, ScreenManager *sm, WidgetSet *ws) {
     s_wifiManager = wm;
@@ -80,6 +82,7 @@ void MainHelper::setupConfig() {
     s_configManager->addConfigComboBox("TFT Settings", "dimStartHour", &s_dimStartHour, optHours, 24, t_dimStartHour, true);
     s_configManager->addConfigComboBox("TFT Settings", "dimEndHour", &s_dimEndHour, optHours, 24, t_dimEndHour, true);
     s_configManager->addConfigInt("TFT Settings", "dimBrightness", &s_dimBrightness, t_dimBrightness, true);
+    s_configManager->addConfigBool("TFT Settings", "debugOutput", &s_debugEnabled, "Enable Debug Output", true);
 }
 
 void MainHelper::buttonPressed(uint8_t buttonId, ButtonState state) {
@@ -90,26 +93,26 @@ void MainHelper::buttonPressed(uint8_t buttonId, ButtonState state) {
     // Reset cycle timer whenever a button is pressed
     if (buttonId == BUTTON_LEFT && state == BTN_SHORT) {
         // Left short press cycles widgets backward
-        Log.noticeln("Left button short pressed -> switch to prev Widget");
+        DEBUG_PRINTF("Left button short pressed -> switch to prev Widget\n");
         s_widgetCycleDelayPrev = millis();
         s_widgetSet->prev();
     } else if (buttonId == BUTTON_RIGHT && state == BTN_SHORT) {
         // Right short press cycles widgets forward
-        Log.noticeln("Right button short pressed -> switch to next Widget");
+        DEBUG_PRINTF("Right button short pressed -> switch to next Widget\n");
         s_widgetCycleDelayPrev = millis();
         s_widgetSet->next();
     } else {
         // Everything else that is not BTN_NOTHING will be forwarded to the current widget
         if (buttonId == BUTTON_LEFT) {
-            Log.noticeln("Left button pressed, state=%d", state);
+            DEBUG_PRINTF("Left button pressed, state=%d\n", state);
             s_widgetCycleDelayPrev = millis();
             s_widgetSet->buttonPressed(BUTTON_LEFT, state);
         } else if (buttonId == BUTTON_MIDDLE) {
-            Log.noticeln("Middle button pressed, state=%d", state);
+            DEBUG_PRINTF("Middle button pressed, state=%d\n", state);
             s_widgetCycleDelayPrev = millis();
             s_widgetSet->buttonPressed(BUTTON_MIDDLE, state);
         } else if (buttonId == BUTTON_RIGHT) {
-            Log.noticeln("Right button pressed, state=%d", state);
+            DEBUG_PRINTF("Right button pressed, state=%d\n", state);
             s_widgetCycleDelayPrev = millis();
             s_widgetSet->buttonPressed(BUTTON_RIGHT, state);
         }
@@ -500,13 +503,13 @@ void MainHelper::setupLittleFS() {
 }
 
 void MainHelper::watchdogInit() {
-    Log.noticeln("Initializing watchdog timer to %d seconds... ", WDT_TIMEOUT);
+    DEBUG_PRINTF("Initializing watchdog timer to %d seconds... ", WDT_TIMEOUT);
     // Initialize the watchdog timer for the main task
     if (esp_task_wdt_init(WDT_TIMEOUT, true) == ESP_OK) {
-        Log.noticeln("done!");
+        DEBUG_PRINTF("done!\n");
         // Add the main task to the watchdog
         if (esp_task_wdt_add(nullptr) == ESP_OK) {
-            Log.noticeln("Main task added to watchdog.");
+            DEBUG_PRINTF("Main task added to watchdog.\n");
         } else {
             Log.errorln("Failed to add main task to watchdog.");
         }
@@ -534,6 +537,15 @@ void MainHelper::printPrefix(Print *_logOutput, int logLevel) {
         sprintf(timestamp, "%02d:%02d:%02d ", hour(now_s), minute(now_s), second(now_s));
     }
     _logOutput->print(timestamp);
+}
+
+// Global wrapper function for debug flag access (for DebugHelper.h macros)
+bool isDebugEnabled_global() {
+    return MainHelper::isDebugEnabled();
+}
+
+bool MainHelper::isDebugEnabled() {
+    return s_debugEnabled;
 }
 
 void MainHelper::eraseNVSAndRestart() {

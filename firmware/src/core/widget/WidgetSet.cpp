@@ -1,4 +1,5 @@
 #include "WidgetSet.h"
+#include "DebugHelper.h"
 #include <ArduinoLog.h>
 
 WidgetSet::WidgetSet(ScreenManager *sm) : m_screenManager(sm) {
@@ -6,7 +7,7 @@ WidgetSet::WidgetSet(ScreenManager *sm) : m_screenManager(sm) {
 
 void WidgetSet::add(Widget *widget) {
     if (!widget->isEnabled()) {
-        Log.infoln("Widget %s is disabled", widget->getName().c_str());
+        DEBUG_PRINTF("Widget %s is disabled\n", widget->getName().c_str());
         return;
     }
     if (m_widgetCount == MAX_WIDGETS) {
@@ -21,7 +22,7 @@ void WidgetSet::add(Widget *widget) {
 void WidgetSet::drawCurrent(bool force) {
     Widget *currentWidget = m_widgets[m_currentWidget];
     if (force || currentWidget->isItTimeToDraw()) {
-        Log.traceln("Drawing widget: %s", currentWidget->getName().c_str());
+        DEBUG_PRINTF("Drawing widget: %s\n", currentWidget->getName().c_str());
         if (m_clearScreensOnDrawCurrent) {
             m_screenManager->clearAllScreens();
             m_clearScreensOnDrawCurrent = false;
@@ -35,7 +36,7 @@ void WidgetSet::drawCurrent(bool force) {
 void WidgetSet::updateCurrent() {
     Widget *currentWidget = m_widgets[m_currentWidget];
     if (currentWidget->isItTimeToUpdate()) {
-        Log.traceln("Updating widget: %s", currentWidget->getName().c_str());
+        DEBUG_PRINTF("Updating widget: %s\n", currentWidget->getName().c_str());
         currentWidget->update();
     }
 }
@@ -83,7 +84,7 @@ void WidgetSet::switchWidget() {
     uint32_t start = millis();
     getCurrent()->draw(true);
     uint32_t end = millis();
-    Log.noticeln("Drawing of %s took %d ms", getCurrent()->getName().c_str(), (end - start));
+    DEBUG_PRINTF("Drawing of %s took %d ms\n", getCurrent()->getName().c_str(), (end - start));
 }
 
 void WidgetSet::showCenteredLine(int screen, const String &text) {
@@ -100,7 +101,7 @@ void WidgetSet::showLoading() {
 void WidgetSet::updateAll() {
     for (uint8_t i = 0; i < m_widgetCount; i++) {
         if (m_widgets[i]->isEnabled()) {
-            Log.infoln("updating widget %s", m_widgets[i]->getName().c_str());
+            DEBUG_PRINTF("updating widget %s\n", m_widgets[i]->getName().c_str());
             showCenteredLine(4, m_widgets[i]->getName());
             m_widgets[i]->update();
         }

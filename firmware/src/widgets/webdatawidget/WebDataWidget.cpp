@@ -1,5 +1,6 @@
 
 #include "WebDataWidget.h"
+#include "DebugHelper.h"
 
 WebDataWidget::WebDataWidget(ScreenManager &manager, ConfigManager &config, String url) : Widget(manager, config) {
     httpRequestAddress = url;
@@ -60,11 +61,11 @@ void WebDataWidget::update(bool force) {
                 m_lastUpdate = millis();
             } else {
                 // Handle JSON deserialization error
-                Serial.println("deserializeJson() failed");
+                DEBUG_PRINTLN("deserializeJson() failed");
             }
         } else {
             // Handle HTTP request error
-            Serial.printf("HTTP request failed, error: %s\n", http.errorToString(httpCode).c_str());
+            DEBUG_PRINTF("HTTP request failed, error: %s\n", http.errorToString(httpCode).c_str());
         }
         http.end();
     }

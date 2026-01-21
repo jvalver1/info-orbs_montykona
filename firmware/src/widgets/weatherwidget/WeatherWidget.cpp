@@ -9,6 +9,7 @@
 // factor out the text wrapping (there's a utils for that already, if that doesn't work, why not?)
 
 #include "WeatherWidget.h"
+#include "DebugHelper.h"
 #include "WeatherTranslations.h"
 #include "feeds/OpenWeatherMapFeed.h"
 #include "feeds/TempestFeed.h"
@@ -28,7 +29,7 @@ WeatherWidget::WeatherWidget(ScreenManager &manager, ConfigManager &config)
     m_config.addConfigComboBox("WeatherWidget", "weatherUnits", &m_weatherUnits, t_temperatureUnits, t_temperatureUnit, true);
     m_config.addConfigComboBox("WeatherWidget", "weatherScrMode", &m_screenMode, t_screenModes, t_screenMode, true);
     m_config.addConfigInt("WeatherWidget", "weatherCycleHL", &m_switchinterval, t_weatherCycleHL, true);
-    Log.noticeln("WeatherWidget initialized, mode=%d", m_screenMode);
+    DEBUG_PRINTF("WeatherWidget initialized, mode=%d\n", m_screenMode);
     m_mode = MODE_HIGHS;
 }
 

@@ -1,4 +1,5 @@
 #include "StockWidget.h"
+#include "DebugHelper.h"
 #include "StockTranslations.h"
 #include "TaskFactory.h"
 #include <ArduinoJson.h>
@@ -32,8 +33,8 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
         m_stockCount++;
     } while (symbol = strtok(nullptr, ","));
     m_pageCount = 1 + ((m_stockCount - 1) / NUM_SCREENS); // int division round up
-    Log.infoln("StockWidget initialized");
-    Log.traceln("StockWidget Pages: %d across %d symbools.", m_pageCount, m_stockCount);
+    DEBUG_PRINTF("StockWidget initialized\n");
+    DEBUG_PRINTF("StockWidget Pages: %d across %d symbools.\n", m_pageCount, m_stockCount);
 }
 
 void StockWidget::setup() {
@@ -54,7 +55,7 @@ void StockWidget::draw(bool force) {
             m_manager.setFontColor(TFT_WHITE, TFT_BLACK);
             m_manager.drawCentreString(I18n::get(t_loadingData), ScreenCenterX, ScreenCenterY, 16);
         } else if ((m_stocks[i].isChanged() || force) && !m_stocks[i].getSymbol().isEmpty()) {
-            Log.traceln("StockWidget::draw - %s", m_stocks[i].getSymbol().c_str());
+            DEBUG_PRINTF("StockWidget::draw - %s\n", m_stocks[i].getSymbol().c_str());
             displayStock(displayIndex, m_stocks[i], TFT_WHITE, TFT_BLACK);
             m_stocks[i].setChangedStatus(false);
             m_stocks[i].setInitializationStatus(true);
@@ -73,7 +74,7 @@ void StockWidget::update(bool force) {
 
     // Queue requests for each stock
     for (int8_t i = 0; i < m_stockCount; i++) {
-        Log.traceln("StockWidget::update - %s", m_stocks[i].getSymbol().c_str());
+        DEBUG_PRINTF("StockWidget::update - %s\n", m_stocks[i].getSymbol().c_str());
         String url = "https://api.twelvedata.com/quote?apikey=e03fc53524454ab8b65d91b23c669cc5&symbol=" + m_stocks[i].getSymbol();
 
         StockDataModel &stock = m_stocks[i];
@@ -125,7 +126,7 @@ void StockWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
 }
 
 void StockWidget::displayStock(int8_t displayIndex, StockDataModel &stock, uint32_t backgroundColor, uint32_t textColor) {
-    Log.infoln("displayStock - %s ~ %s", stock.getSymbol().c_str(), stock.getCurrentPrice(2).c_str());
+    DEBUG_PRINTF("displayStock - %s ~ %s\n", stock.getSymbol().c_str(), stock.getCurrentPrice(2).c_str());
     if (stock.getCurrentPrice() == 0.0) {
         // There isn't any data to display yet
         return;
@@ -179,7 +180,7 @@ void StockWidget::nextPage() {
     // Reset the timer for the next page if we just switched manually
     m_prevMillisSwitch = millis();
     m_page = (m_page + 1) % m_pageCount;
-    Log.traceln("StockWidget Page: %d", m_page + 1);
+    DEBUG_PRINTF("StockWidget Page: %d\n", m_page + 1);
     draw(true);
 }
 

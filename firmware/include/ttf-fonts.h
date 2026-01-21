@@ -31,13 +31,13 @@ extern const byte finalFrontier_end[] asm("_binary_fonts_FinalFrontier_ttf_end")
 
 // Choose either Classic or Modern here and remember to also adjust platformio.ini
 // *******************************************************************************
-// extern const byte dseg7_start[] asm("_binary_fonts_DSEG7ClassicBold_ttf_start");
-// extern const byte dseg7_end[] asm("_binary_fonts_DSEG7ClassicBold_ttf_end");
-// extern const byte dseg14_start[] asm("_binary_fonts_DSEG14ClassicBold_ttf_start");
-// extern const byte dseg14_end[] asm("_binary_fonts_DSEG14ClassicBold_ttf_end");
-extern const byte dseg7_start[] asm("_binary_fonts_DSEG7ModernBold_ttf_start");
-extern const byte dseg7_end[] asm("_binary_fonts_DSEG7ModernBold_ttf_end");
-extern const byte dseg14_start[] asm("_binary_fonts_DSEG14ModernBold_ttf_start");
-extern const byte dseg14_end[] asm("_binary_fonts_DSEG14ModernBold_ttf_end");
+extern const byte dseg7_start[] asm("_binary_fonts_DSEG7ClassicBold_ttf_start");
+extern const byte dseg7_end[] asm("_binary_fonts_DSEG7ClassicBold_ttf_end");
+extern const byte dseg14_start[] asm("_binary_fonts_DSEG14ClassicBold_ttf_start");
+extern const byte dseg14_end[] asm("_binary_fonts_DSEG14ClassicBold_ttf_end");
+//extern const byte dseg7_start[] asm("_binary_fonts_DSEG7ModernBold_ttf_start");
+//extern const byte dseg7_end[] asm("_binary_fonts_DSEG7ModernBold_ttf_end");
+//extern const byte dseg14_start[] asm("_binary_fonts_DSEG14ModernBold_ttf_start");
+//extern const byte dseg14_end[] asm("_binary_fonts_DSEG14ModernBold_ttf_end");
 
 #endif

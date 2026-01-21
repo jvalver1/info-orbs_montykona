@@ -11,7 +11,7 @@
 #include "git_info.h"
 #include <Arduino.h>
 
-#define VERSION "1.2beta"
+#define VERSION "2.0JJV"
 
 // Set defaults if not set in config.h
 #ifndef TFT_BRIGHTNESS
@@ -45,7 +45,7 @@
 #endif
 
 #ifndef WDT_TIMEOUT
-    #define WDT_TIMEOUT 60 // Timeout in seconds
+    #define WDT_TIMEOUT 120 // Timeout in seconds (increased from 60 for initialization headroom)
 #endif
 
 class MainHelper {
@@ -83,6 +83,8 @@ public:
     static void updateBrightnessByTime(uint8_t hour24);
 
     static void printPrefix(Print *_logOutput, int logLevel);
+    
+    static bool isDebugEnabled();
     static void eraseNVSAndRestart();
 };
 

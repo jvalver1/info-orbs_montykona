@@ -1,6 +1,7 @@
 #include "ConfigManager.h"
 
 #include "Button.h"
+#include "DebugHelper.h"
 #include "Utils.h"
 #include "config_helper.h"
 #include "nvs_flash.h"
@@ -25,7 +26,7 @@ static WiFiManagerParameter s_spanAdvancedStart(WEBPORTAL_PARAM_SPAN_ADVANCED_ST
 static WiFiManagerParameter s_spanEnd(WEBPORTAL_PARAM_SPAN_END);
 
 ConfigManager::ConfigManager(WiFiManager &wm) : m_wm(wm) {
-    Log.infoln("Constructing ConfigManager");
+    DEBUG_PRINTF("Constructing ConfigManager\n");
     if (!m_preferences.begin("config", false)) {
         Log.warningln("Failed to initialize NVS in ConfigManager... erasing NVS");
         nvs_flash_erase();
@@ -38,16 +39,16 @@ ConfigManager::ConfigManager(WiFiManager &wm) : m_wm(wm) {
             Log.infoln("...it worked!");
         }
     } else {
-        Log.infoln("NVS initialized successfully in ConfigManager");
+        DEBUG_PRINTF("NVS initialized successfully in ConfigManager\n");
         // Init pinMode for middle button (even if the buttons are not setup yet)
         pinMode(BUTTON_MIDDLE_PIN, BUTTON_MODE);
         if (digitalRead(BUTTON_MIDDLE_PIN) == Button::PRESSED_LEVEL) {
-            Log.infoln("Middle button pressed -> Clearing preferences...");
+            DEBUG_PRINTF("Middle button pressed -> Clearing preferences...\n");
             m_preferences.clear();
             Log.infoln("...done");
         }
     }
-    Log.infoln("ConfigManager initialized");
+    DEBUG_PRINTF("ConfigManager initialized\n");
     s_instance = this;
 }
 
@@ -76,7 +77,7 @@ void ConfigManager::setupWebPortal() {
         Log.traceln("Adding WebPortal parameter: %s, %s", param.section, param.variableName);
 #endif
         if (strcmp(lastSection, param.section) != 0) {
-            Log.infoln("New config section: %s", param.section);
+            DEBUG_PRINTF("New config section: %s\n", param.section);
             if (advancedOpen) {
                 // close advanced params span
                 m_wm.addParameter(&s_spanEnd);

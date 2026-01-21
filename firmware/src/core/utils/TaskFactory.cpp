@@ -1,4 +1,5 @@
 #include "TaskFactory.h"
+#include "DebugHelper.h"
 #include "GlobalResources.h"
 #include "TaskManager.h"
 #include "Utils.h"
@@ -6,7 +7,7 @@
 #include <HTTPClient.h>
 
 void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback, Task::PreProcessCallback preProcess) {
-    Log.noticeln("🔵 Starting HTTP request for: %s", url.c_str());
+    DEBUG_PRINTF("🔵 Starting HTTP request for: %s\n", url.c_str());
 
     {
         HTTPClient http;

@@ -1,5 +1,6 @@
 #include "WebDataElementImageModel.h"
 
+#include "DebugHelper.h"
 #include <HTTPClient.h>
 #include <LittleFS.h>
 #include <WiFi.h>
@@ -65,31 +66,31 @@ void WebDataElementImageModel::draw(ScreenManager &manager) {
 bool getFile(String url, String filename) {
     // If it exists then no need to fetch it
     if (LittleFS.exists(filename) == true) {
-        Serial.println("Found " + filename);
+        DEBUG_PRINTLN("Found " + filename);
         return 0;
     }
 
-    Serial.println("Downloading " + filename + " from " + url);
+    DEBUG_PRINTLN("Downloading " + filename + " from " + url);
 
     // Check WiFi connection
     if ((WiFi.status() == WL_CONNECTED)) {
-        Serial.print("[HTTP] begin...\n");
+        DEBUG_PRINT("[HTTP] begin...\n");
 
         HTTPClient http;
         // Configure server and url
         http.begin(url);
 
-        Serial.print("[HTTP] GET...\n");
+        DEBUG_PRINT("[HTTP] GET...\n");
         // Start connection and send HTTP header
         int httpCode = http.GET();
         if (httpCode == 200) {
             fs::File f = LittleFS.open(filename, "w+");
             if (!f) {
-                Serial.println("file open failed");
+                DEBUG_PRINTLN("file open failed");
                 return 0;
             }
             // HTTP header has been send and Server response header has been handled
-            Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+            DEBUG_PRINTF("[HTTP] GET... code: %d\n", httpCode);
 
             // File found at server
             if (httpCode == HTTP_CODE_OK) {
@@ -122,12 +123,12 @@ bool getFile(String url, String filename) {
                     }
                     yield();
                 }
-                Serial.println();
-                Serial.print("[HTTP] connection closed or file end.\n");
+                DEBUG_PRINTLN();
+                DEBUG_PRINT("[HTTP] connection closed or file end.\n");
             }
             f.close();
         } else {
-            Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+            DEBUG_PRINTF("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
         }
         http.end();
     }

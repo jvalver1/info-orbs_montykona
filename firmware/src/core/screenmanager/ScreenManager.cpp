@@ -1,5 +1,6 @@
 #include "ScreenManager.h"
 #include "ConfigManager.h"
+#include "DebugHelper.h"
 #include "Utils.h"
 #include <Arduino.h>
 #include <ArduinoLog.h>
@@ -32,18 +33,18 @@ ScreenManager::ScreenManager(TFT_eSPI &tft) : m_tft(tft) {
     setFont(DEFAULT_FONT);
     m_render.setDrawer(m_tft);
 
-    Log.noticeln("ScreenManager initialized");
-    Log.noticeln("TFT_MOSI: %s", String(TFT_MOSI));
-    Log.noticeln("TFT_MISO: %s", String(TFT_MISO));
-    Log.noticeln("TFT_SCLK: %s", String(TFT_SCLK));
-    Log.noticeln("TFT_CS: %s", String(TFT_CS));
-    Log.noticeln("TFT_DC: %s", String(TFT_DC));
-    Log.noticeln("TFT_RST: %s", String(TFT_RST));
-    Log.noticeln("SCREEN_1_CS: %s", String(SCREEN_1_CS));
-    Log.noticeln("SCREEN_2_CS: %s", String(SCREEN_2_CS));
-    Log.noticeln("SCREEN_3_CS: %s", String(SCREEN_3_CS));
-    Log.noticeln("SCREEN_4_CS: %s", String(SCREEN_4_CS));
-    Log.noticeln("SCREEN_5_CS: %s", String(SCREEN_5_CS));
+    DEBUG_PRINTF("ScreenManager initialized\n");
+    DEBUG_PRINTF("TFT_MOSI: %s\n", String(TFT_MOSI).c_str());
+    DEBUG_PRINTF("TFT_MISO: %s\n", String(TFT_MISO).c_str());
+    DEBUG_PRINTF("TFT_SCLK: %s\n", String(TFT_SCLK).c_str());
+    DEBUG_PRINTF("TFT_CS: %s\n", String(TFT_CS).c_str());
+    DEBUG_PRINTF("TFT_DC: %s\n", String(TFT_DC).c_str());
+    DEBUG_PRINTF("TFT_RST: %s\n", String(TFT_RST).c_str());
+    DEBUG_PRINTF("SCREEN_1_CS: %s\n", String(SCREEN_1_CS).c_str());
+    DEBUG_PRINTF("SCREEN_2_CS: %s\n", String(SCREEN_2_CS).c_str());
+    DEBUG_PRINTF("SCREEN_3_CS: %s\n", String(SCREEN_3_CS).c_str());
+    DEBUG_PRINTF("SCREEN_4_CS: %s\n", String(SCREEN_4_CS).c_str());
+    DEBUG_PRINTF("SCREEN_5_CS: %s\n", String(SCREEN_5_CS).c_str());
 
     instance = this;
 }

@@ -1,6 +1,7 @@
 #include "ClockWidget.h"
 #include "ArduinoLog.h"
 #include "ClockTranslations.h"
+#include "DebugHelper.h"
 
 ClockWidget::ClockWidget(ScreenManager &manager, ConfigManager &config)
     : Widget(manager, config),
@@ -56,6 +57,17 @@ void ClockWidget::addConfigToManager() {
         const char *overrideKey = strdup((String("clkCust") + String(i) + "ovrCol").c_str());
         const char *overrideDesc = strdup((i18nStr(t_clockCustom) + " " + String(i) + ": " + i18nStr(t_clockOverrideColor)).c_str());
         m_config.addConfigColor("ClockWidget", overrideKey, &m_customOverrideColor[i], overrideDesc, true);
+    }
+    // Force-enable CustomClock0 AFTER all config loading
+    // This ensures it's always accessible, bypassing any saved web configuration
+    if (USE_CLOCK_CUSTOM > 0) {
+        m_customEnabled[0] = true;
+        DEBUG_PRINTF("CustomClock0 FORCE-ENABLED AFTER config load (USE_CLOCK_CUSTOM=%d, m_customEnabled[0]=%d)\n", USE_CLOCK_CUSTOM, m_customEnabled[0]);
+    }
+    // Force-enable CustomClock1 as well
+    if (USE_CLOCK_CUSTOM > 1) {
+        m_customEnabled[1] = true;
+        DEBUG_PRINTF("CustomClock1 FORCE-ENABLED AFTER config load (USE_CLOCK_CUSTOM=%d, m_customEnabled[1]=%d)\n", USE_CLOCK_CUSTOM, m_customEnabled[1]);
     }
 #endif
 }
@@ -195,20 +207,27 @@ bool ClockWidget::isValidClockType(int clockType) {
         return USE_CLOCK_NIXIE > 0;
     else if (isCustomClock(clockType)) {
         int customClockNumber = clockType - (int) ClockType::CUSTOM0;
-        return USE_CLOCK_CUSTOM > customClockNumber && m_customEnabled[customClockNumber];
+        bool isValid = USE_CLOCK_CUSTOM > customClockNumber && m_customEnabled[customClockNumber];
+        DEBUG_PRINTF("Checking CustomClock%d: USE_CLOCK_CUSTOM=%d, enabled=%d, valid=%d\n", 
+                   customClockNumber, USE_CLOCK_CUSTOM, m_customEnabled[customClockNumber], isValid);
+        return isValid;
     } else
         return false;
 }
 
 void ClockWidget::changeClockType() {
+    int oldType = m_type;
     m_type++;
     if (m_type >= CLOCK_TYPE_NUM) {
         m_type = 0;
     }
+    DEBUG_PRINTF("Attempting to change clock type from %d to %d\n", oldType, m_type);
     if (!isValidClockType(m_type)) {
+        DEBUG_PRINTF("Clock type %d is NOT valid, trying next...\n", m_type);
         // Call recursively until a valid clock type is found
         changeClockType();
     } else {
+        DEBUG_PRINTF("Clock type %d IS VALID, switching to it\n", m_type);
         m_manager.clearAllScreens();
         draw(true);
     }
@@ -251,8 +270,12 @@ void ClockWidget::displayDigit(int displayIndex, const String &lastDigit, const 
         int defaultX = SCREEN_SIZE / 2 + (isDigit ? CLOCK_OFFSET_X_DIGITS : CLOCK_OFFSET_X_COLON);
         int defaultY = SCREEN_SIZE / 2;
         DigitOffset digitOffset = getOffsetForDigit(digit);
-        DigitOffset lastDigitOffset = getOffsetForDigit(lastDigit);
         m_manager.selectScreen(displayIndex);
+        
+        // Clear the entire screen area for this digit to prevent ghosting
+        // This is necessary because different digits have different offsets
+        m_manager.fillRect(0, 0, SCREEN_SIZE, SCREEN_SIZE, TFT_BLACK);
+        
         if (shadowing) {
             m_manager.setFontColor(m_shadowColor, TFT_BLACK);
             if (CLOCK_FONT == DSEG14) {
@@ -261,21 +284,14 @@ void ClockWidget::displayDigit(int displayIndex, const String &lastDigit, const 
             } else if (CLOCK_FONT == DSEG7) {
                 // DESG7 uses 8 to fill all segments
                 m_manager.drawString("8", defaultX, defaultY, fontSize, Align::MiddleCenter);
-            } else {
-                // Other fonts can't be shadowed
-                m_manager.setFontColor(TFT_BLACK, TFT_BLACK);
-                m_manager.drawString(lastDigit, defaultX + lastDigitOffset.x, defaultY + lastDigitOffset.y, fontSize, Align::MiddleCenter);
             }
-        } else {
-            m_manager.setFontColor(TFT_BLACK, TFT_BLACK);
-            m_manager.drawString(lastDigit, defaultX + lastDigitOffset.x, defaultY + lastDigitOffset.y, fontSize, Align::MiddleCenter);
         }
         m_manager.setFontColor(color, TFT_BLACK);
         m_manager.drawString(digit, defaultX + digitOffset.x, defaultY + digitOffset.y, fontSize, Align::MiddleCenter);
     }
     uint32_t end = millis();
 #ifdef CLOCK_DEBUG
-    Log.infoln("displayDigit(%s) took %dms", digit.c_str(), end - start);
+    DEBUG_PRINTF("displayDigit(%s) took %dms\n", digit.c_str(), end - start);
 #endif
 }
 

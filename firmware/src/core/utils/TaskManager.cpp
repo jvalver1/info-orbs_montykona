@@ -1,4 +1,5 @@
 #include "TaskManager.h"
+#include "DebugHelper.h"
 #include "GlobalResources.h"
 #include "Utils.h"
 #include <ArduinoLog.h>
@@ -76,7 +77,7 @@ void TaskManager::processAwaitingTasks() {
     // Get next request
     TaskParams *taskParams = nullptr;
     if (xQueueReceive(requestQueue, &taskParams, 0) != pdPASS) {
-        Log.noticeln("⚠️ Queue empty after size check!");
+        DEBUG_PRINTF("⚠️ Queue empty after size check!\n");
         activeRequests--;
         Utils::setBusy(false);
         xSemaphoreGive(taskSemaphore);
@@ -99,7 +100,7 @@ void TaskManager::processAwaitingTasks() {
             // Log.traceln("TaskParams deleted: %d", taskParamsCount);
 
             Utils::setBusy(false);
-            Log.noticeln("✅ Release semaphore");
+            DEBUG_PRINTF("✅ Release semaphore\n");
             xSemaphoreGive(taskSemaphore);
             vTaskDelete(nullptr);
         },

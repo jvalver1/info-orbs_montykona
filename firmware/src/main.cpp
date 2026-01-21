@@ -1,4 +1,5 @@
 #include "5zonewidget/5ZoneWidget.h"
+#include "DebugHelper.h"
 #include "GlobalResources.h"
 #include "MainHelper.h"
 #include "clockwidget/ClockWidget.h"
@@ -8,6 +9,7 @@
 #include "stockwidget/StockWidget.h"
 #include "weatherwidget/WeatherWidget.h"
 #include "webdatawidget/WebDataWidget.h"
+#include "eyeswidget/EyesWidget.h"
 #include "wifiwidget/WifiWidget.h"
 #include <ArduinoLog.h>
 
@@ -51,6 +53,9 @@ void addWidgets() {
 #if INCLUDE_MATRIXSCREEN != WIDGET_DISABLED
     widgetSet->add(new MatrixWidget(*sm, *config));
 #endif
+#if INCLUDE_EYES != WIDGET_DISABLED
+    widgetSet->add(new EyesWidget(*sm, *config));
+#endif
 }
 
 void setup() {
@@ -73,8 +78,8 @@ void setup() {
     Log.setPrefix(MainHelper::printPrefix);
 #endif
     Log.begin(LOG_LEVEL, &Serial);
-    Log.noticeln("🚀 Starting up...");
-    Log.noticeln("PCB Version: %s", PCB_VERSION);
+    DEBUG_PRINTF("🚀 Starting up...\n");
+    DEBUG_PRINTF("PCB Version: %s\n", PCB_VERSION);
 
     wifiManager = new OrbsWiFiManager();
     config = new ConfigManager(*wifiManager);
@@ -83,18 +88,29 @@ void setup() {
 
     // Pass references to MainHelper
     MainHelper::init(wifiManager, config, sm, widgetSet);
+    MainHelper::watchdogReset();  // Reset after basic initialization
+    
     MainHelper::setupLittleFS();
+    MainHelper::watchdogReset();  // Reset after LittleFS mounting
+    
     MainHelper::setupConfig();
+    MainHelper::watchdogReset();  // Reset after config loading
+    
     MainHelper::setupButtons();
     MainHelper::showWelcome();
 
     pinMode(BUSY_PIN, OUTPUT);
-    Log.noticeln("Connecting to WiFi");
+    DEBUG_PRINTF("Connecting to WiFi\n");
+    MainHelper::watchdogReset();  // Reset before WiFi connection
+    
     wifiWidget = new WifiWidget(*sm, *config, *wifiManager);
     wifiWidget->setup();
+    MainHelper::watchdogReset();  // Reset after WiFi setup
 
     globalTime = GlobalTime::getInstance();
     addWidgets();
+    MainHelper::watchdogReset();  // Reset after widget initialization
+    
     config->setupWebPortal();
     MainHelper::resetCycleTimer();
 }

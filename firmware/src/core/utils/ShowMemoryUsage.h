@@ -1,16 +1,19 @@
 #ifndef SHOW_MEMORY_USAGE_H
 #define SHOW_MEMORY_USAGE_H
 
-#define SHOW_MEMORY_USAGE(msg)                     \
-    do {                                           \
-        ShowMemoryUsage::printSerial(true, false); \
-        if (msg[0] != '\0') {                      \
-            Serial.print(" --- ");                 \
-            Serial.println(msg);                   \
-        } else {                                   \
-            Serial.println();                      \
-        }                                          \
-    } while (0)
+#include "DebugHelper.h"
+
+#ifdef MEMORY_DEBUG_INTERVAL
+    #define SHOW_MEMORY_USAGE(msg)                 \
+        do {                                       \
+            DEBUG_PRINT(" --- ");                  \
+            DEBUG_PRINTLN(msg);                    \
+            ShowMemoryUsage::printSerial(false);   \
+            DEBUG_PRINTLN();                       \
+        } while (0)
+#else
+    #define SHOW_MEMORY_USAGE(msg) // No-op
+#endif
 
 class ShowMemoryUsage {
 public:

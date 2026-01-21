@@ -23,13 +23,14 @@
 struct TimeZone {
     std::string locName = "";
     std::string tzInfo = "";
+    std::string flag = "";  // Country flag emoji or code
     int timeZoneOffset = -1;
-    unsigned long nextTimeZoneUpdate = 0;
-    int m_workStart = DEFAULT_WORK_HOUR_START; // Work start hour for this zone
-    int m_workEnd = DEFAULT_WORK_HOUR_END; // Work end hour for this zone
-    String m_lastDateIndicator = "x";
-    String m_lastDisplayAM = "x";
-    int m_zoneDiff = -99;
+    time_t nextTimeZoneUpdate = 0;
+    int m_workStart = 9; // Work start hour for this zone
+    int m_workEnd = 17; // Work end hour for this zone
+    String m_lastDateIndicator = "";
+    String m_lastDisplayAM = "";
+    int m_zoneDiff = 99;
 };
 
 class FiveZoneWidget : public Widget {
@@ -47,6 +48,7 @@ private:
     void displayZone(int8_t displayIndex, bool force);
     bool isWeekend(int weekday) { return weekday == 1 || weekday == 7; }
     void changeFormat();
+    void drawCountryFlag(const String& countryCode, int x, int y, int width, int height);
 
     TimeZone m_timeZones[MAX_ZONES];
     TimeZone m_localTimeZone;
