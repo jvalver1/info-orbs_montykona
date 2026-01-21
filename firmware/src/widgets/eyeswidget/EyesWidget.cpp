@@ -55,7 +55,7 @@ void EyesWidget::update(bool force) {
         if (currentTime - m_lastLongCloseTime >= m_nextLongCloseDelay) {
             m_isLongClose = true;
             m_currentClosedDuration = randomInterval(m_longCloseDurationMin, m_longCloseDurationMax);
-            
+
             m_blinkState = BlinkState::CLOSING;
             m_blinkStartTime = currentTime;
             m_lastLongCloseTime = currentTime;
@@ -129,7 +129,7 @@ void EyesWidget::draw(bool force) {
         m_firstDraw = false;
     } else {
         // Incremental update: only redraw changed parts
-        
+
         if (m_pupilJustMoved || force) {
             // Pupil moved: must redraw both eyes to ensure they are in sync
             drawEye(1, centerX, centerY);
@@ -222,11 +222,11 @@ void EyesWidget::drawEyelid(int screenIndex, int centerX, int centerY, float clo
     // When open (0%), it should be just off-screen or at the very top
     // When closed (100%), it should be fully centered
     int eyelidHeight = 240;
-    int yOffset = -eyelidHeight + (int)(eyelidHeight * easedPercent);
-    
+    int yOffset = -eyelidHeight + (int) (eyelidHeight * easedPercent);
+
     // Always show or hide based on offset
     // User wants no eyelid portion visible when open
-    // if (yOffset < -220) yOffset = -220; 
+    // if (yOffset < -220) yOffset = -220;
 
     const byte *eyelidStart = (screenIndex == 1) ? eye_eyelid_start : eye_eyelid_mirrored_start;
     uint32_t eyelidSize = (screenIndex == 1) ? (eye_eyelid_end - eye_eyelid_start) : (eye_eyelid_mirrored_end - eye_eyelid_mirrored_start);

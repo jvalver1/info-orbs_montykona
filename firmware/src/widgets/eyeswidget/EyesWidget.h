@@ -59,14 +59,14 @@ private:
     PupilPosition m_pupilPosition = PupilPosition::CENTER;
     BlinkState m_blinkState = BlinkState::OPEN;
     float m_blinkProgress = 0.0f; // 0.0 = open, 1.0 = closed
-    
+
     // Timing
     unsigned long m_lastPupilMoveTime = 0;
     unsigned long m_nextPupilMoveDelay = 3000; // Time until next pupil move
     unsigned long m_lastBlinkTime = 0;
     unsigned long m_nextBlinkDelay = 4000; // Time until next blink
     unsigned long m_blinkStartTime = 0;
-    
+
     // Long close (closed eyes) timing
     unsigned long m_lastLongCloseTime = 0;
     unsigned long m_nextLongCloseDelay = 60000; // Occasional: 1 minute default
