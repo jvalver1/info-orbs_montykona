@@ -171,7 +171,7 @@ Control your Orbs from your phone or PC through a virtual interface or programma
 ## 🛠️ Hardware Mapping
 
 | Component         | ESP32 Pin | Component       | ESP32 Pin |
-| :---------------- | :-------- | :-------------- | :-------- |
+|:------------------|:----------|:----------------|:----------|
 | **SDA (MOSI)**    | GPIO 17   | **Screen 1 CS** | GPIO 13   |
 | **SCLK**          | GPIO 23   | **Screen 2 CS** | GPIO 33   |
 | **DC**            | GPIO 19   | **Screen 3 CS** | GPIO 32   |
