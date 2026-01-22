@@ -234,68 +234,68 @@
 
 // 5 ZONE WIDGET DEFAULTS
 #ifndef ZONE_0_NAME
-    #define ZONE_0_NAME ""
+    #define ZONE_0_NAME "London"
 #endif
 #ifndef ZONE_0_TIMEZONE
-    #define ZONE_0_TIMEZONE ""
+    #define ZONE_0_TIMEZONE "Europe/London"
 #endif
 #ifndef ZONE_0_OFFSET
     #define ZONE_0_OFFSET 0
 #endif
 #ifndef ZONE_0_FLAG
-    #define ZONE_0_FLAG ""
+    #define ZONE_0_FLAG "GB"
 #endif
 
 #ifndef ZONE_1_NAME
-    #define ZONE_1_NAME ""
+    #define ZONE_1_NAME "Madrid"
 #endif
 #ifndef ZONE_1_TIMEZONE
-    #define ZONE_1_TIMEZONE ""
+    #define ZONE_1_TIMEZONE "Europe/Madrid"
 #endif
 #ifndef ZONE_1_OFFSET
-    #define ZONE_1_OFFSET 0
+    #define ZONE_1_OFFSET 3600
 #endif
 #ifndef ZONE_1_FLAG
-    #define ZONE_1_FLAG ""
+    #define ZONE_1_FLAG "ES"
 #endif
 
 #ifndef ZONE_2_NAME
-    #define ZONE_2_NAME ""
+    #define ZONE_2_NAME "São Paulo"
 #endif
 #ifndef ZONE_2_TIMEZONE
-    #define ZONE_2_TIMEZONE ""
+    #define ZONE_2_TIMEZONE "America/Sao_Paulo"
 #endif
 #ifndef ZONE_2_OFFSET
-    #define ZONE_2_OFFSET 0
+    #define ZONE_2_OFFSET -10800
 #endif
 #ifndef ZONE_2_FLAG
-    #define ZONE_2_FLAG ""
+    #define ZONE_2_FLAG "BR"
 #endif
 
 #ifndef ZONE_3_NAME
-    #define ZONE_3_NAME ""
+    #define ZONE_3_NAME "New York"
 #endif
 #ifndef ZONE_3_TIMEZONE
-    #define ZONE_3_TIMEZONE ""
+    #define ZONE_3_TIMEZONE "America/New_York"
 #endif
 #ifndef ZONE_3_OFFSET
-    #define ZONE_3_OFFSET 0
+    #define ZONE_3_OFFSET -18000
 #endif
 #ifndef ZONE_3_FLAG
-    #define ZONE_3_FLAG ""
+    #define ZONE_3_FLAG "US"
 #endif
 
 #ifndef ZONE_4_NAME
-    #define ZONE_4_NAME ""
+    #define ZONE_4_NAME "Tokyo"
 #endif
 #ifndef ZONE_4_TIMEZONE
-    #define ZONE_4_TIMEZONE ""
+    #define ZONE_4_TIMEZONE "Asia/Tokyo"
 #endif
 #ifndef ZONE_4_OFFSET
-    #define ZONE_4_OFFSET 0
+    #define ZONE_4_OFFSET 32400
 #endif
 #ifndef ZONE_4_FLAG
-    #define ZONE_4_FLAG ""
+    #define ZONE_4_FLAG "JP"
 #endif
 
 // STOCK WIDGET SETTINGS
