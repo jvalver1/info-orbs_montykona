@@ -1,0 +1,147 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// This config file is optional.  If you choose to use it copy it to a file named config.h and place it in the same folder
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// USE THESE SETTINGS TO ENABLE/DISABLE/TURN OFF WIDGETS
+// WIDGET_ON = WIDGET IS ON BY DEFAULT BUT CAN BE TURNED OFF IN THE WEB INTERFACE
+// WIDGET_OFF = WIDGET IS OFF BY DEFAULT BUT CAN BE TURNED ON IN THE WEB INTERFACE
+// WIDGET_DISABLED = WIDGET IS OFF AND CANNOT BE TURNED ON IN THE WEB INTERFACE (USE THIS FOR WIDGETS YOU DON'T WANT TO USE)
+#define INCLUDE_WEATHER WIDGET_ON
+#define INCLUDE_STOCK WIDGET_ON
+#define INCLUDE_PARQET WIDGET_OFF
+#define INCLUDE_WEBDATA WIDGET_DISABLED
+#define INCLUDE_MQTT WIDGET_DISABLED
+#define INCLUDE_5ZONE WIDGET_ON
+#define INCLUDE_MATRIXSCREEN WIDGET_ON
+#define INCLUDE_EYES WIDGET_ON
+#define INCLUDE_DEBUG_OUTPUT WIDGET_OFF
+
+// WEATHER FEED SELECTION (ONLY SET ONE FEED TO TRUE)
+#define WEATHER_VISUALCROSSING_FEED true
+#define WEATHER_OPENWEATHERMAP_FEED false // requires your own API key (get it from https://home.openweathermap.org/users/sign_up)
+#define WEATHER_TEMPEST_FEED false
+
+// ADVANCED COMPILE OPTIONS
+
+// NIGHTTIME DIMMING
+// #define DIM_START_HOUR 22  // Dim the screens at this time (24h format)
+// #define DIM_END_HOUR 7     // Undim the screens at this time (24h format)
+// #define DIM_BRIGHTNESS 128 // Dim brightness (0-255)
+
+// TRUETYPE FONT CONFIGURATION
+// #define DEFAULT_FONT ROBOTO_REGULAR
+
+// #define INCLUDE_MDNS // Include mDNS responder, for local name resolution without DNS (disable to save flash/memory)
+
+// Log levels: LOG_LEVEL_SILENT, LOG_LEVEL_FATAL, LOG_LEVEL_ERROR,
+// LOG_LEVEL_WARNING, LOG_LEVEL_INFO, LOG_LEVEL_TRACE, LOG_LEVEL_VERBOSE (NOTICE is the same as INFO, it's kept for backward compatability)
+// #define LOG_LEVEL LOG_LEVEL_INFO
+
+// Include current time in all log output
+// #define LOG_TIMESTAMP
+
+// Enable if you're having issues with the app outputting garbage characters on startup, delay in ms
+// #define SERIAL_INTERFACE_INIT_DELAY 4000
+
+// if not defined, then no memory debugging is emitted
+// #define MEMORY_DEBUG_INTERVAL 5000
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// WEB-BASED CONFIGURATION
+// NOTE: If you are using the web-based configuration, you can ignore many (or possibly all) of the settings in this section
+// and instead configure your settings in the web interface. If you have saved your settings in the web interface, any changes
+// you make here will NOT take effect until/unless you clear the settings in the web interface.  If you are NOT using the web-based
+// configuration, you can use this section to configure your settings.
+// NOTE: VERY Long pressing the left button (15 seconds) will clear all web-based settings including Wifi settings.
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MAIN CONFIGURATION
+#define TIMEZONE_API_LOCATION "Europe/London" // Use timezone from this list: https://timezonedb.com/time-zones
+#define ORB_ROTATION 0 // 0 = Normal, 1 = 90 degrees CW, 2 = 180 degrees, 3 = 270 degrees
+#define WIDGET_CYCLE_DELAY 0 // Automatically cycle widgets every X seconds, set to 0 to disable
+#define LANGUAGE LANG_EN // Language selection - possible values are LANG_EN, LANG_DE, LANG_FR
+
+// CLOCK CONFIGURATION
+#define FORMAT_24_HOUR true // Toggle 24 hour clock vs 12 hour clock, change between true/false
+#define SHOW_AM_PM_INDICATOR false // AM/PM on the clock if using 12 hour
+#define SHOW_SECOND_TICKS true // Ticking indicator on the centre clock
+#define CLOCK_COLOR 0xfc80 // Orange for clock
+#define CLOCK_SHADOW_COLOR 0x20a1 // Clock shadow color (Light brown)
+#define CLOCK_SHADOWING true // Use clock shadow (set to false to disable)
+#define USE_CLOCK_NIXIE NIXIE_NOHOLES // Set to NIXIE_HOLES or NIXIE_NOHOLES to define the Nixie style (set to 0 to disable)
+#define USE_CLOCK_CUSTOM 2 // Number of Custom Clocks [0-10] (set to 0 to disable, see images/clock/README.md)
+// #define CLOCK_NIXIE_COLOR 0x001f        // Override Nixie color
+#define DEFAULT_CLOCK ClockType::NORMAL // Set the default clock face: ClockType::NORMAL, ClockType::NIXIE or ClockType::CUSTOM0..9
+#define CLOCK_FONT DSEG7 // Define clock font (defaults to DSEG7, you can also try DSEG14 or FINAL_FRONTIER)
+
+// WEATHER CONFIGURATION
+#define WEATHER_SCREEN_MODE Dark // Can be either Light or Dark
+#define WEATHER_UNITS_METRIC // Comment this line out (or delete it) if you want imperial units for the weather
+#define HIGH_LOW_INTERVAL 0 // Switch between Highs and Lows on 3 day forecast in X seconds - set to 0 to disable
+
+#define WEATHER_VISUALCROSSING_LOCATION "Swindon, UK" // City/state for the weather, look it up on https://www.visualcrossing.com/weather-data
+
+#define WEATHER_OPENWEATHERMAP_API_KEY "d902b3e0b2026c9a8fd28019be39e6a3" // Your OpenWeatherMap API key (get it from https://home.openweathermap.org/users/sign_up)
+#define WEATHER_OPENWEATHERMAP_LAT "51.5579" // Latitude of your location
+#define WEATHER_OPENWEATHERMAP_LON "-1.78116" // Longitude of your location
+#define WEATHER_OPENWEATHERMAP_NAME "Swindon"
+
+#define WEATHER_TEMPEST_STATION_ID "155350" // Set the station ID of your Tempest weather station
+#define WEATHER_TEMPEST_STATION_NAME "Chicago" // Set the name of your Tempest weather station
+
+// 5 ZONE CLOCK CONFIGURATION
+// Configure the 5 zones with city names and timezone identifiers
+// Timezone list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+#define ZONE_0_NAME "London"
+#define ZONE_0_TIMEZONE "Europe/London"
+#define ZONE_0_OFFSET 0 // UTC+0 (UTC+1 during BST in summer)
+#define ZONE_0_FLAG "GB" // Flag emoji: 🇬🇧 or country code: GB
+
+#define ZONE_1_NAME "Madrid"
+#define ZONE_1_TIMEZONE "Europe/Madrid"
+#define ZONE_1_OFFSET 3600 // UTC+1 (UTC+2 during CEST in summer)
+#define ZONE_1_FLAG "ES" // Flag emoji: 🇪🇸 or country code: ES
+
+#define ZONE_2_NAME "Rio de Janeiro"
+#define ZONE_2_TIMEZONE "America/Sao_Paulo"
+#define ZONE_2_OFFSET -10800 // UTC-3 (no DST)
+#define ZONE_2_FLAG "BR" // Flag emoji: 🇧🇷 or country code: BR
+
+#define ZONE_3_NAME "New York"
+#define ZONE_3_TIMEZONE "America/New_York"
+#define ZONE_3_OFFSET -18000 // UTC-5 (UTC-4 during EDT in summer)
+#define ZONE_3_FLAG "US" // Flag emoji: 🇺🇸 or country code: US
+
+#define ZONE_4_NAME "Tokyo"
+#define ZONE_4_TIMEZONE "Asia/Tokyo"
+#define ZONE_4_OFFSET 32400 // UTC+9 (no DST)
+#define ZONE_4_FLAG "JP" // Flag emoji: 🇯🇵 or country code: JP
+
+// STOCK TICKER CONFIGURATION
+#define STOCK_TICKER_LIST "BTC/USD,GBP/EUR,NVDA,VOD,MSFT" // Choose 5 securities to track. You can track forex, crypto (symbol/USD) or stocks from any exchange (if one ticker is part of multiple exchanges you can add on "&country=Canada" to narrow down to your ticker) (WEB-BASED CONFIG)
+#define STOCK_CHANGE_FORMAT 0 // Show percent change (0) or price change (1)
+
+// PARQET.COM PORTFOLIO CONFIGURATION
+// #define PARQET_PORTFOLIO_ID "" // set the id of your parqet.com portfolio. Make sure the portfolio is set to public!
+
+// WEB DATA CONFIGURATION
+// #define WEB_DATA_WIDGET_URL "" // Use this to make your own widgets using an API/Webdata source
+// #define WEB_DATA_STOCK_WIDGET_URL "http://<insert host here>/stocks.php?stocks=SPY,VT,GOOG,TSLA,GME" // Use this as an alternative to the stock ticker widget
+
+// MQTT CONFIGURATION
+// #define MQTT_WIDGET_HOST "192.168.3.40" // MQTT broker host
+// #define MQTT_WIDGET_PORT 1883           // MQTT broker port
+// #define MQTT_SETUP_TOPIC "info-orbs/setup/orbs" // Setup topic ion is not required
+// #define MQTT_WIDGET_PASS "mqttuser"     // Leave empty if authentication is not required
+
+// WIFI CONFIGURATION
+// Normally WiFi should be configured using a smartphone or computer to connect to the Info-Orbs
+// configuration portal. But as a fall-back method, WiFi can be setup by uncommenting these 2 lines and
+// changing the SSID and password.
+// #define WIFI_SSID "MyWiFiRouter" // Wifi router SSID name (use only 2.4 GHz network)
+// #define WIFI_PASS "WiFiPassword" // Wifi router password
+
+#endif
