@@ -1,6 +1,7 @@
 #include "5ZoneWidget.h"
 #include "5ZoneTranslations.h"
 #include "DebugHelper.h"
+#include "FlagImages.h"
 #include <ArduinoJson.h>
 #include <ArduinoLog.h>
 
@@ -60,94 +61,16 @@ FiveZoneWidget::FiveZoneWidget(ScreenManager &manager, ConfigManager &config) : 
     m_format = m_config.getConfigInt("clockFormat", 0);
 }
 
-// Draw a simplified country flag using graphic primitives
+// Draw a country flag using embedded JPG bitmap from Flagpedia CDN
 // Flag will be drawn at (x, y) with dimensions (width x height)
 void FiveZoneWidget::drawCountryFlag(const String &countryCode, int x, int y, int width, int height) {
-    String code = countryCode;
-    code.toUpperCase();
+    const uint8_t *flagData = getFlagStart(countryCode);
+    uint32_t flagSize = getFlagSize(countryCode);
 
-    if (code == "GB") {
-        // UK: Union Jack with diagonal crosses
-        m_manager.fillRect(x, y, width, height, TFT_BLUE);
-
-        // White diagonal stripes (St. Andrew's cross)
-        // Top-left to bottom-right
-        for (int i = 0; i < width; i++) {
-            int yPos = y + (i * height) / width;
-            m_manager.fillRect(x + i, yPos - 2, 1, 5, TFT_WHITE);
-        }
-        // Top-right to bottom-left
-        for (int i = 0; i < width; i++) {
-            int yPos = y + height - (i * height) / width;
-            m_manager.fillRect(x + i, yPos - 2, 1, 5, TFT_WHITE);
-        }
-
-        // Red diagonal stripes (St. Patrick's cross)
-        // Top-left to bottom-right
-        for (int i = 0; i < width; i++) {
-            int yPos = y + (i * height) / width;
-            m_manager.fillRect(x + i, yPos, 1, 1, TFT_RED);
-        }
-        // Top-right to bottom-left
-        for (int i = 0; i < width; i++) {
-            int yPos = y + height - (i * height) / width;
-            m_manager.fillRect(x + i, yPos, 1, 1, TFT_RED);
-        }
-
-        // White cross border (St. George's cross border)
-        m_manager.fillRect(x + width / 2 - 3, y, 6, height, TFT_WHITE);
-        m_manager.fillRect(x, y + height / 2 - 3, width, 6, TFT_WHITE);
-
-        // Red cross (St. George's cross)
-        m_manager.fillRect(x + width / 2 - 2, y, 4, height, TFT_RED);
-        m_manager.fillRect(x, y + height / 2 - 2, width, 4, TFT_RED);
-
-    } else if (code == "ES") {
-        // Spain: Horizontal stripes (Red-Yellow-Red)
-        int stripeHeight = height / 4;
-        m_manager.fillRect(x, y, width, stripeHeight, TFT_RED);
-        m_manager.fillRect(x, y + stripeHeight, width, stripeHeight * 2, TFT_YELLOW);
-        m_manager.fillRect(x, y + stripeHeight * 3, width, stripeHeight, TFT_RED);
-
-    } else if (code == "BR") {
-        // Brazil: Green background with yellow diamond and blue globe
-        m_manager.fillRect(x, y, width, height, TFT_GREEN);
-
-        // Yellow diamond (rhombus) using two triangles
-        int margin = 3;
-        // Top triangle
-        m_manager.fillTriangle(x + width / 2, y + margin,
-                               x + margin, y + height / 2,
-                               x + width - margin, y + height / 2,
-                               TFT_YELLOW);
-        // Bottom triangle
-        m_manager.fillTriangle(x + margin, y + height / 2,
-                               x + width - margin, y + height / 2,
-                               x + width / 2, y + height - margin,
-                               TFT_YELLOW);
-
-        // Blue globe
-        m_manager.fillCircle(x + width / 2, y + height / 2, height / 5, TFT_BLUE);
-
-    } else if (code == "US") {
-        // USA: Simplified with blue canton and red/white stripes
-        int stripeHeight = height / 4;
-        // Red and white stripes
-        m_manager.fillRect(x, y, width, stripeHeight, TFT_RED);
-        m_manager.fillRect(x, y + stripeHeight, width, stripeHeight, TFT_WHITE);
-        m_manager.fillRect(x, y + stripeHeight * 2, width, stripeHeight, TFT_RED);
-        m_manager.fillRect(x, y + stripeHeight * 3, width, stripeHeight, TFT_WHITE);
-        // Blue canton (top-left)
-        m_manager.fillRect(x, y, width / 2, height / 2, TFT_BLUE);
-
-    } else if (code == "JP") {
-        // Japan: White background with red circle
-        m_manager.fillRect(x, y, width, height, TFT_WHITE);
-        int radius = height / 3;
-        m_manager.fillCircle(x + width / 2, y + height / 2, radius, TFT_RED);
-
+    if (flagData != nullptr && flagSize > 0) {
+        m_manager.drawJpg(x, y, flagData, flagSize);
     } else {
-        // Default: Draw country code text if flag not implemented
+        // Fallback: Draw country code text if flag bitmap not available
         m_manager.fillRect(x, y, width, height, TFT_DARKGREY);
         m_manager.drawString(countryCode.c_str(), x + width / 2, y + height / 2, 12, Align::MiddleCenter, TFT_WHITE, TFT_DARKGREY);
     }
@@ -252,7 +175,7 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
     const int dateY = 75; // Date indicator below name
     const int clockY = 115; // Time in middle
     const int ampmY = 175; // AM/PM indicator
-    const int offsetY = 200; // Offset at bottom
+    const int offsetY = 218; // Offset at bottom (moved down to avoid overlap with flag)
     String lv_displayHour = "";
     String lv_offsetStr = " ";
     int lv_ringColor;
@@ -271,8 +194,15 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
     m_manager.setFont(DEFAULT_FONT);
     m_manager.selectScreen(displayIndex);
 
-    if (force)
+    if (force) {
         m_manager.fillScreen(m_backgroundColor);
+        // Draw 4-pixel border circle on the edge of the TFT screen
+        uint16_t borderColor = TFT_CYAN; // Turquoise
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 119, borderColor);
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 118, borderColor);
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 117, borderColor);
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 116, borderColor);
+    }
     m_foregroundColor = m_workColour;
     m_manager.setFontColor(m_foregroundColor);
 
@@ -349,12 +279,11 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
             zone.m_lastDisplayAM = lv_displayAM;
         }
 
-        // Draw flag between time and offset
-        int flagY = offsetY - 25; // Position flag above offset
+        // Draw flag centered between time and offset
         int flagWidth = 40;
-        int flagHeight = 20;
+        int flagHeight = 30;
+        int flagY = (clockY + 35 + offsetY) / 2 - 1; // Center between clock bottom and offset, nudged 1px up
         if (force) {
-            m_manager.fillRect(ScreenCenterX - flagWidth / 2 - 2, flagY - flagHeight / 2 - 2, flagWidth + 4, flagHeight + 4, m_backgroundColor);
             drawCountryFlag(zone.flag.c_str(), ScreenCenterX - flagWidth / 2, flagY - flagHeight / 2, flagWidth, flagHeight);
         }
 

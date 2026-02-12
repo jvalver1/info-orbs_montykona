@@ -115,10 +115,10 @@
 #define ZONE_3_OFFSET -18000 // UTC-5 (UTC-4 during EDT in summer)
 #define ZONE_3_FLAG "US" // Flag emoji: 🇺🇸 or country code: US
 
-#define ZONE_4_NAME "Tokyo"
-#define ZONE_4_TIMEZONE "Asia/Tokyo"
-#define ZONE_4_OFFSET 32400 // UTC+9 (no DST)
-#define ZONE_4_FLAG "JP" // Flag emoji: 🇯🇵 or country code: JP
+#define ZONE_4_NAME "El Cairo"
+#define ZONE_4_TIMEZONE "Africa/Cairo"
+#define ZONE_4_OFFSET 7200 // UTC+2
+#define ZONE_4_FLAG "EG" // Flag: 🇪🇬 or country code: EG
 
 // STOCK TICKER CONFIGURATION
 #define STOCK_TICKER_LIST "BTC/USD,GBP/EUR,NVDA,VOD,MSFT" // Choose 5 securities to track. You can track forex, crypto (symbol/USD) or stocks from any exchange (if one ticker is part of multiple exchanges you can add on "&country=Canada" to narrow down to your ticker) (WEB-BASED CONFIG)
