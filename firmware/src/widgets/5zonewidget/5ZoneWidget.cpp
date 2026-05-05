@@ -123,7 +123,7 @@ void FiveZoneWidget::getTZoneOffset(int8_t zoneIndex) {
     gmtime_r(&localEpoch, &tmUtc);
     tmUtc.tm_isdst = 0;
     time_t utcEpoch = mktime(&tmUtc);
-    zone.timeZoneOffset = (int)difftime(localEpoch, utcEpoch);
+    zone.timeZoneOffset = (int) difftime(localEpoch, utcEpoch);
 
     DEBUG_PRINTF("Zone %d (%s): POSIX='%s', offset=%d sec (%d hours), DST=%s\n",
                  zoneIndex, zone.tzInfo.c_str(), posixTz,

@@ -80,7 +80,7 @@ void GlobalTime::updateTime(bool force) {
                 gmtime_r(&localEpoch, &utcinfo);
                 utcinfo.tm_isdst = 0; // Force no DST for UTC conversion
                 time_t utcEpoch = mktime(&utcinfo);
-                m_timeZoneOffset = (int)difftime(localEpoch, utcEpoch);
+                m_timeZoneOffset = (int) difftime(localEpoch, utcEpoch);
                 if (!m_timeZoneFetched) {
                     DEBUG_PRINTF("GlobalTime: Local time via POSIX TZ: %04d-%02d-%02d %02d:%02d:%02d (UTC offset: %d sec, DST: %s)\n",
                                  m_year, m_month, m_day, m_hour24, m_minute, m_second,
