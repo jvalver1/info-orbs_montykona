@@ -2,6 +2,7 @@
 
 #include "ConfigManager.h"
 #include "DebugHelper.h"
+#include "PosixTimezones.h"
 #include "Translations.h"
 #include "config_helper.h"
 #include <ArduinoJson.h>
@@ -18,6 +19,18 @@ GlobalTime::GlobalTime() {
     m_format24hour = (clockFormat == CLOCK_FORMAT_24_HOUR);
     m_timeClient = new NTPClient(m_udp, m_ntpServer.c_str(), 0, m_updateInterval);
     m_timeClient->begin();
+
+    // Configure ESP32 system time with POSIX timezone for automatic DST
+    const char *posixTz = getPosixTz(m_timezoneLocation.c_str());
+    if (posixTz != nullptr) {
+        DEBUG_PRINTF("GlobalTime: Using POSIX TZ for '%s': %s\n", m_timezoneLocation.c_str(), posixTz);
+        configTzTime(posixTz, m_ntpServer.c_str(), "time.nist.gov");
+        m_posixTzConfigured = true;
+    } else {
+        DEBUG_PRINTF("GlobalTime: No POSIX TZ found for '%s', falling back to UTC\n", m_timezoneLocation.c_str());
+        configTzTime("UTC0", m_ntpServer.c_str(), "time.nist.gov");
+        m_posixTzConfigured = true;
+    }
 }
 
 GlobalTime::~GlobalTime() {
@@ -40,27 +53,58 @@ void GlobalTime::updateTime(bool force) {
         m_updateTimer = millis();
         m_timeClient->update();
         if (m_timeClient->isTimeSet()) {
-            // NTP time is valid
-            // Timezone API calls disabled - using NTP time offset
-            // if (m_timeZoneOffset == -1 || (m_nextTimeZoneUpdate > 0 && m_unixEpoch > m_nextTimeZoneUpdate)) {
-            //     getTimeZoneOffsetFromAPI();
-            // }
-            m_unixEpoch = m_timeClient->getEpochTime();
-            m_minute = minute(m_unixEpoch);
-            if (m_format24hour) {
-                m_hour = hour(m_unixEpoch);
-            } else {
-                m_hour = hourFormat12(m_unixEpoch);
-            }
-            m_hour24 = hour(m_unixEpoch);
-            m_second = second(m_unixEpoch);
+            // Use ESP32 system time with POSIX timezone (handles DST automatically)
+            struct tm timeinfo;
+            if (m_posixTzConfigured && getLocalTime(&timeinfo, 0)) {
+                // getLocalTime succeeded — use system time with DST applied
+                m_unixEpoch = mktime(&timeinfo);
+                m_minute = timeinfo.tm_min;
+                if (m_format24hour) {
+                    m_hour = timeinfo.tm_hour;
+                } else {
+                    int h = timeinfo.tm_hour % 12;
+                    m_hour = (h == 0) ? 12 : h;
+                }
+                m_hour24 = timeinfo.tm_hour;
+                m_second = timeinfo.tm_sec;
+                m_day = timeinfo.tm_mday;
+                m_month = timeinfo.tm_mon + 1; // tm_mon is 0-based
+                m_monthName = i18n(t_months, m_month - 1);
+                m_year = timeinfo.tm_year + 1900;
+                m_weekday = i18n(t_weekdays, timeinfo.tm_wday); // tm_wday: 0=Sunday
+                m_time = String(m_hour) + ":" + (m_minute < 10 ? "0" + String(m_minute) : String(m_minute));
 
-            m_day = day(m_unixEpoch);
-            m_month = month(m_unixEpoch);
-            m_monthName = i18n(t_months, m_month - 1);
-            m_year = year(m_unixEpoch);
-            m_weekday = i18n(t_weekdays, weekday(m_unixEpoch) - 1);
-            m_time = String(m_hour) + ":" + (m_minute < 10 ? "0" + String(m_minute) : String(m_minute));
+                // Compute timezone offset by comparing local and UTC time
+                time_t localEpoch = mktime(&timeinfo);
+                struct tm utcinfo;
+                gmtime_r(&localEpoch, &utcinfo);
+                utcinfo.tm_isdst = 0; // Force no DST for UTC conversion
+                time_t utcEpoch = mktime(&utcinfo);
+                m_timeZoneOffset = (int)difftime(localEpoch, utcEpoch);
+                if (!m_timeZoneFetched) {
+                    DEBUG_PRINTF("GlobalTime: Local time via POSIX TZ: %04d-%02d-%02d %02d:%02d:%02d (UTC offset: %d sec, DST: %s)\n",
+                                 m_year, m_month, m_day, m_hour24, m_minute, m_second,
+                                 m_timeZoneOffset, timeinfo.tm_isdst > 0 ? "active" : "inactive");
+                    m_timeZoneFetched = true;
+                }
+            } else {
+                // Fallback: use NTPClient raw epoch (UTC)
+                m_unixEpoch = m_timeClient->getEpochTime();
+                m_minute = minute(m_unixEpoch);
+                if (m_format24hour) {
+                    m_hour = hour(m_unixEpoch);
+                } else {
+                    m_hour = hourFormat12(m_unixEpoch);
+                }
+                m_hour24 = hour(m_unixEpoch);
+                m_second = second(m_unixEpoch);
+                m_day = day(m_unixEpoch);
+                m_month = month(m_unixEpoch);
+                m_monthName = i18n(t_months, m_month - 1);
+                m_year = year(m_unixEpoch);
+                m_weekday = i18n(t_weekdays, weekday(m_unixEpoch) - 1);
+                m_time = String(m_hour) + ":" + (m_minute < 10 ? "0" + String(m_minute) : String(m_minute));
+            }
         }
     }
 }
@@ -144,13 +188,12 @@ String GlobalTime::getDayAndMonth() {
 #include <HTTPClient.h> // Include the necessary header file
 
 bool GlobalTime::isPM() {
-    return hour(m_unixEpoch) >= 12;
+    return m_hour24 >= 12;
 }
 
 void GlobalTime::getTimeZoneOffsetFromAPI() {
-    // API calls disabled - SSL connection failures, timezone managed by NTP
-    DEBUG_PRINTF("Timezone API disabled - using NTP offset\n");
-    return;
+    // No longer needed — POSIX timezone handles DST automatically
+    DEBUG_PRINTF("GlobalTime: Timezone managed by POSIX TZ rules (no API needed)\n");
 }
 
 bool GlobalTime::getFormat24Hour() {

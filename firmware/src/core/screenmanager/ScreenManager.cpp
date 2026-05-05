@@ -79,6 +79,10 @@ void ScreenManager::setFont(TTF_Font font) {
     case DSEG14:
         error = m_render.loadFont(dseg14_start, dseg14_end - dseg14_start);
         break;
+
+    case ORBITRON_BOLD:
+        error = m_render.loadFont(orbitronBold_start, orbitronBold_end - orbitronBold_start);
+        break;
     }
     if (error == 0) {
         m_curFont = font;

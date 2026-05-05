@@ -9,7 +9,8 @@ enum TTF_Font {
     ROBOTO_REGULAR,
     FINAL_FRONTIER,
     DSEG7,
-    DSEG14
+    DSEG14,
+    ORBITRON_BOLD
 };
 
 struct TTF_FontMetric {
@@ -18,7 +19,7 @@ struct TTF_FontMetric {
 };
 
 // Set scaling factor for each font if necessary
-const TTF_FontMetric ttfFontMetrics[] = {{ROBOTO_REGULAR, 1.37}, {FINAL_FRONTIER, 1.5}};
+const TTF_FontMetric ttfFontMetrics[] = {{ROBOTO_REGULAR, 1.37}, {FINAL_FRONTIER, 1.5}, {ORBITRON_BOLD, 1.37}};
 
 // These symbols are generated from the files specified in platformio.ini under 'board_build.embed_files'
 // See https://docs.platformio.org/en/latest/platforms/espressif32.html#embedding-binary-data for more info
@@ -28,6 +29,9 @@ extern const byte robotoRegular_end[] asm("_binary_fonts_RobotoRegular_ttf_end")
 
 extern const byte finalFrontier_start[] asm("_binary_fonts_FinalFrontier_ttf_start");
 extern const byte finalFrontier_end[] asm("_binary_fonts_FinalFrontier_ttf_end");
+
+extern const byte orbitronBold_start[] asm("_binary_fonts_Orbitron_Bold_ttf_start");
+extern const byte orbitronBold_end[] asm("_binary_fonts_Orbitron_Bold_ttf_end");
 
 // Choose either Classic or Modern here and remember to also adjust platformio.ini
 // *******************************************************************************

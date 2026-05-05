@@ -49,6 +49,8 @@ private:
     bool isWeekend(int weekday) { return weekday == 1 || weekday == 7; }
     void changeFormat();
     void drawCountryFlag(const String &countryCode, int x, int y, int width, int height);
+    void drawSecondsDot(int8_t displayIndex, int sec, uint16_t color);
+    void drawRoundedRect(int x, int y, int w, int h, int r, uint16_t color);
 
     TimeZone m_timeZones[MAX_ZONES];
     TimeZone m_localTimeZone;
@@ -56,6 +58,7 @@ private:
     time_t m_unixEpoch = 0;
     int m_clockStampU = -1;
     int m_clockStampD = -1;
+    int m_lastSecond[MAX_ZONES] = {-1, -1, -1, -1, -1};
     uint16_t m_backgroundColor = BG_COLOR;
     uint16_t m_foregroundColor;
     uint16_t m_workColour = WORK_FG_COLOR;

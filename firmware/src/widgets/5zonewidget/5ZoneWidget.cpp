@@ -2,6 +2,8 @@
 #include "5ZoneTranslations.h"
 #include "DebugHelper.h"
 #include "FlagImages.h"
+#include "PosixTimezones.h"
+#include "TFT_eSPI.h"
 #include <ArduinoJson.h>
 #include <ArduinoLog.h>
 
@@ -80,50 +82,64 @@ void FiveZoneWidget::setup() {
 }
 
 void FiveZoneWidget::getTZoneOffset(int8_t zoneIndex) {
-
     TimeZone &zone = m_timeZones[zoneIndex];
-    HTTPClient http;
-    http.begin(String(TIMEZONE_API_URL) + "?timeZone=" + String(zone.tzInfo.c_str()));
 
-    DEBUG_PRINTF("Fetching timezone for zone %d: %s\n", zoneIndex, zone.tzInfo.c_str());
-
-    int httpCode = http.GET();
-    if (httpCode > 0) {
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, http.getString());
-        if (!error) {
-            zone.timeZoneOffset = doc["currentUtcOffset"]["seconds"].as<int>();
-            DEBUG_PRINTF("Zone %d offset fetched: %d seconds (%d hours)\n",
-                         zoneIndex, zone.timeZoneOffset, zone.timeZoneOffset / 3600);
-
-            if (doc["hasDayLightSaving"].as<bool>()) {
-                String dstStart = doc["dstInterval"]["dstStart"].as<String>();
-                String dstEnd = doc["dstInterval"]["dstEnd"].as<String>();
-                bool dstActive = doc["isDayLightSavingActive"].as<bool>();
-                tmElements_t m_temp_t;
-                if (dstActive) {
-                    m_temp_t.Year = dstEnd.substring(0, 4).toInt() - 1970;
-                    m_temp_t.Month = dstEnd.substring(5, 7).toInt();
-                    m_temp_t.Day = dstEnd.substring(8, 10).toInt();
-                    m_temp_t.Hour = dstEnd.substring(11, 13).toInt();
-                    m_temp_t.Minute = dstEnd.substring(14, 16).toInt();
-                    m_temp_t.Second = dstEnd.substring(17, 19).toInt();
-                } else {
-                    m_temp_t.Year = dstStart.substring(0, 4).toInt() - 1970;
-                    m_temp_t.Month = dstStart.substring(5, 7).toInt();
-                    m_temp_t.Day = dstStart.substring(8, 10).toInt();
-                    m_temp_t.Hour = dstStart.substring(11, 13).toInt();
-                    m_temp_t.Minute = dstStart.substring(14, 16).toInt();
-                    m_temp_t.Second = dstStart.substring(17, 19).toInt();
-                }
-                zone.nextTimeZoneUpdate = makeTime(m_temp_t) + random(5 * 60); // Randomize update by 5 minutes to avoid flooding the API;
-            }
-        } else {
-            Log.errorln("Zone %d: Deserialization error on timezone offset API response", zoneIndex);
-        }
-    } else {
-        Log.errorln("Zone %d: Failed to get timezone offset from API (HTTP code: %d)", zoneIndex, httpCode);
+    // Check if system time is valid (SNTP may not have synced yet)
+    time_t now;
+    time(&now);
+    struct tm checkTm;
+    gmtime_r(&now, &checkTm);
+    if (checkTm.tm_year + 1900 < 2025) {
+        DEBUG_PRINTF("Zone %d: System time not synced yet (year=%d), deferring offset computation\n",
+                     zoneIndex, checkTm.tm_year + 1900);
+        // Don't set nextTimeZoneUpdate — will retry on next update cycle
+        return;
     }
+
+    // Look up POSIX timezone string for this zone's IANA identifier
+    const char *posixTz = getPosixTz(zone.tzInfo.c_str());
+    if (posixTz == nullptr) {
+        DEBUG_PRINTF("Zone %d: No POSIX TZ for '%s', keeping hardcoded offset %d\n",
+                     zoneIndex, zone.tzInfo.c_str(), zone.timeZoneOffset);
+        zone.nextTimeZoneUpdate = m_time->getUnixEpoch() + 3600; // Retry in 1 hour
+        return;
+    }
+
+    // Temporarily set the system timezone to this zone's POSIX string
+    // to compute the current UTC offset (including DST)
+    const char *savedTz = getenv("TZ");
+    String savedTzStr = savedTz ? String(savedTz) : "";
+
+    setenv("TZ", posixTz, 1);
+    tzset();
+
+    // Get current time in this timezone
+    struct tm tmLocal;
+    localtime_r(&now, &tmLocal);
+
+    // Compute UTC offset by comparing local and UTC representations
+    time_t localEpoch = mktime(&tmLocal);
+    struct tm tmUtc;
+    gmtime_r(&localEpoch, &tmUtc);
+    tmUtc.tm_isdst = 0;
+    time_t utcEpoch = mktime(&tmUtc);
+    zone.timeZoneOffset = (int)difftime(localEpoch, utcEpoch);
+
+    DEBUG_PRINTF("Zone %d (%s): POSIX='%s', offset=%d sec (%d hours), DST=%s\n",
+                 zoneIndex, zone.tzInfo.c_str(), posixTz,
+                 zone.timeZoneOffset, zone.timeZoneOffset / 3600,
+                 tmLocal.tm_isdst > 0 ? "active" : "inactive");
+
+    // Restore the original timezone
+    if (savedTzStr.length() > 0) {
+        setenv("TZ", savedTzStr.c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
+
+    // Refresh hourly to catch DST transitions
+    zone.nextTimeZoneUpdate = m_time->getUnixEpoch() + 3600;
 }
 
 void FiveZoneWidget::update(bool force) {
@@ -134,14 +150,13 @@ void FiveZoneWidget::update(bool force) {
         m_clockStampU = clockStamp;
         time_t lv_localEpoch = m_time->getUnixEpoch();
 
-        // API calls disabled - using hardcoded offsets from config.h
-        // for (int i = 0; i < MAX_ZONES; i++) {
-        //     TimeZone &zone = m_timeZones[i];
-        //     if (zone.timeZoneOffset == -1 || (zone.nextTimeZoneUpdate > 0 && lv_localEpoch > zone.nextTimeZoneUpdate)) {
-        //         getTZoneOffset(i);
-        //         delay(100);
-        //     }
-        // }
+        // Compute timezone offsets using POSIX rules (no API needed)
+        for (int i = 0; i < MAX_ZONES; i++) {
+            TimeZone &zone = m_timeZones[i];
+            if (zone.nextTimeZoneUpdate == 0 || (lv_localEpoch > zone.nextTimeZoneUpdate)) {
+                getTZoneOffset(i);
+            }
+        }
     }
 }
 
@@ -161,25 +176,82 @@ int FiveZoneWidget::getClockStamp() {
 
 void FiveZoneWidget::draw(bool force) {
     int clockStamp = getClockStamp();
+    int currentSecond = m_time->getSecond();
 
-    if (clockStamp != m_clockStampD || force) {
+    bool minuteChanged = (clockStamp != m_clockStampD);
+
+    if (minuteChanged || force) {
         m_clockStampD = clockStamp;
         for (int i = 0; i < MAX_ZONES; i++) {
             displayZone(i, force);
         }
     }
+
+    // Update seconds dot every second on all screens
+    for (int i = 0; i < MAX_ZONES; i++) {
+        if (currentSecond != m_lastSecond[i] || force) {
+            m_manager.selectScreen(i);
+            // Erase previous dot
+            if (m_lastSecond[i] >= 0) {
+                drawSecondsDot(i, m_lastSecond[i], m_backgroundColor);
+            }
+            // Draw new dot
+            drawSecondsDot(i, currentSecond, TFT_CYAN);
+            m_lastSecond[i] = currentSecond;
+        }
+    }
+}
+
+// Draw a filled rounded rectangle using fillRect + fillCircle for corners
+void FiveZoneWidget::drawRoundedRect(int x, int y, int w, int h, int r, uint16_t color) {
+    // Central body
+    m_manager.fillRect(x + r, y, w - 2 * r, h, color);
+    // Left and right strips
+    m_manager.fillRect(x, y + r, r, h - 2 * r, color);
+    m_manager.fillRect(x + w - r, y + r, r, h - 2 * r, color);
+    // Four corner circles
+    m_manager.fillCircle(x + r, y + r, r, color);
+    m_manager.fillCircle(x + w - r - 1, y + r, r, color);
+    m_manager.fillCircle(x + r, y + h - r - 1, r, color);
+    m_manager.fillCircle(x + w - r - 1, y + h - r - 1, r, color);
+}
+
+// Draw/erase the seconds indicator dot on the border circle
+void FiveZoneWidget::drawSecondsDot(int8_t displayIndex, int sec, uint16_t color) {
+    // Map seconds (0-59) to angle in radians, starting from 12 o'clock (top)
+    float angle = (sec / 60.0f) * 2.0f * PI - PI / 2.0f;
+    int dotRadius = 4;
+    int orbitRadius = 113; // Just inside the border circle
+    int dotX = ScreenCenterX + (int) (orbitRadius * cos(angle));
+    int dotY = ScreenCenterY + (int) (orbitRadius * sin(angle));
+    m_manager.fillCircle(dotX, dotY, dotRadius, color);
+
+    // When erasing, redraw the border circle to clean up any overlap
+    if (color == m_backgroundColor) {
+        uint16_t borderColor = TFT_CYAN;
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 119, borderColor);
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 118, borderColor);
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 117, borderColor);
+        m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 116, borderColor);
+    }
 }
 
 void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
-    const int nameY = 50; // Zone name at top
-    const int dateY = 75; // Date indicator below name
-    const int clockY = 115; // Time in middle
-    const int ampmY = 175; // AM/PM indicator
-    const int offsetY = 218; // Offset at bottom (moved down to avoid overlap with flag)
+    // --- Layout positions (matching reference image) ---
+    const int nameY = 51; // City name at top
+    const int flagY = 89; // Flag below name (2px lower)
+    const int clockY = 139; // Time center Y (2px lower)
+    const int cardY = 114; // Top of the rounded rect card (2px lower)
+    const int cardH = 50; // Card height
+    const int cardW = 204; // Card width (wider for more side space)
+    const int cardR = 4; // Card corner radius (more square)
+    const int offsetY = 196; // GMT offset below the card (2px lower)
+    const uint16_t cardColor = TFT_CYAN; // Clear blue
+    const uint16_t timeColor = TFT_BLUE; // White text on blue
+
     String lv_displayHour = "";
     String lv_offsetStr = " ";
     int lv_ringColor;
-    String lv_dateIndicator = "";
     String lv_displayAM = "";
     time_t lv_unixEpoch;
     int lv_localDay;
@@ -189,15 +261,14 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
     int lv_day;
     int lv_weekday;
     int lv_hourD;
-    int lv_minuteD;
 
     m_manager.setFont(DEFAULT_FONT);
     m_manager.selectScreen(displayIndex);
 
     if (force) {
         m_manager.fillScreen(m_backgroundColor);
-        // Draw 4-pixel border circle on the edge of the TFT screen
-        uint16_t borderColor = TFT_CYAN; // Turquoise
+        // Draw 4-pixel border circle
+        uint16_t borderColor = TFT_CYAN;
         m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 119, borderColor);
         m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 118, borderColor);
         m_manager.drawCircle(ScreenCenterX, ScreenCenterY, 117, borderColor);
@@ -208,7 +279,6 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
 
     TimeZone &zone = m_timeZones[displayIndex];
 
-    // Debug logging to diagnose timezone issues
     DEBUG_PRINTF("Zone %d: name='%s', tzInfo='%s', offset=%d\n",
                  displayIndex,
                  zone.locName.c_str(),
@@ -216,79 +286,76 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
                  zone.timeZoneOffset);
 
     if (zone.locName != "") {
-        // Get Orb (local) time information
         m_localTimeZone.locName = "Local Time";
         m_localTimeZone.timeZoneOffset = m_time->getTimeZoneOffset();
         m_unixEpoch = m_time->getUnixEpoch();
 
-        // Get Time information for this TZ
         lv_unixEpoch = m_unixEpoch + zone.timeZoneOffset - m_localTimeZone.timeZoneOffset;
         lv_hour = hour(lv_unixEpoch);
         lv_minute = minute(lv_unixEpoch);
         lv_day = day(lv_unixEpoch);
         lv_weekday = weekday(lv_unixEpoch);
 
-        // Calculate offset from local time
-        lv_zoneDiff = zone.timeZoneOffset - m_localTimeZone.timeZoneOffset; // Difference between target UTC offset and local UTC offset
-        lv_hourD = lv_zoneDiff / 3600;
-        lv_minuteD = (abs(lv_zoneDiff) / 60) % 60; // FIX: Use abs() to avoid negative minutes
+        lv_zoneDiff = zone.timeZoneOffset - m_localTimeZone.timeZoneOffset;
+        // Round to nearest whole hour for display
+        lv_hourD = (int) round((float) lv_zoneDiff / 3600.0f);
 
-        // calculate if day offset
         if (lv_zoneDiff > 0) {
             lv_offsetStr = "+";
             lv_ringColor = m_afterLocalTzColour;
         } else if (lv_zoneDiff < 0) {
             lv_offsetStr = "-";
-            lv_hourD = abs(lv_hourD); // Use abs for consistent formatting
+            lv_hourD = abs(lv_hourD);
             lv_ringColor = m_beforeLocalTzColour;
         } else {
             lv_offsetStr = "";
             lv_ringColor = m_sameLocalTzColour;
         }
-        lv_offsetStr = lv_offsetStr + ((lv_hourD < 10) ? "0" : "") + String(lv_hourD) + ":" + ((lv_minuteD < 10) ? "0" : "") + String(lv_minuteD);
+        // Format as "GMT +N"
+        String gmtPrefix = "GMT ";
+        lv_offsetStr = gmtPrefix + lv_offsetStr + String(lv_hourD);
 
-        // calculate if crossing date line
-        lv_localDay = m_time->getDay();
-        if (lv_localDay != lv_day) {
-            if (lv_unixEpoch > m_unixEpoch)
-                lv_dateIndicator = "+1d";
-            else
-                lv_dateIndicator = "-1d";
-        }
-
-        // 12/24 hour formate and AM/PM indicator
+        // 12/24 hour format
         if (m_format == 0) {
             lv_displayHour = ((lv_hour < 10) ? "0" : "") + String(lv_hour);
-            lv_displayAM = "";
         } else {
             lv_displayHour = String(hourFormat12(lv_unixEpoch));
             lv_displayAM = (isAM(lv_unixEpoch)) ? "AM" : "PM";
         }
 
+        // --- City name ---
         m_manager.drawString(zone.locName.c_str(), ScreenCenterX, nameY, 18, Align::MiddleCenter);
 
-        if (lv_dateIndicator != zone.m_lastDateIndicator || force) {
-            m_manager.fillRect(ScreenCenterX - 80, ampmY - 10, 45, 22, m_backgroundColor);
-            m_manager.drawString(lv_dateIndicator, ScreenCenterX - 60, ampmY, 16, Align::MiddleCenter);
-            zone.m_lastDateIndicator = lv_dateIndicator;
-        }
-
-        if (lv_displayAM != zone.m_lastDisplayAM || force) {
-            m_manager.fillRect(ScreenCenterX + 43, ampmY - 10, 37, 22, m_backgroundColor);
-            m_manager.drawString(lv_displayAM, ScreenCenterX + 60, ampmY, 16, Align::MiddleCenter);
-            zone.m_lastDisplayAM = lv_displayAM;
-        }
-
-        // Draw flag centered between time and offset
+        // --- Flag below city name ---
         int flagWidth = 40;
         int flagHeight = 30;
-        int flagY = (clockY + 35 + offsetY) / 2 - 1; // Center between clock bottom and offset, nudged 1px up
         if (force) {
             drawCountryFlag(zone.flag.c_str(), ScreenCenterX - flagWidth / 2, flagY - flagHeight / 2, flagWidth, flagHeight);
         }
 
+        // --- Rounded rectangle card for time ---
+        int cardX = ScreenCenterX - cardW / 2;
+        if (force) {
+            drawRoundedRect(cardX, cardY, cardW, cardH, cardR, cardColor);
+        }
+
+        // --- Time inside the card (use bold font) ---
+        m_manager.setFont(ORBITRON_BOLD);
+        String minuteStr = (lv_minute < 10) ? "0" + String(lv_minute) : String(lv_minute);
+        String lv_displayTime = lv_displayHour + ":" + minuteStr;
+        // Clear full card interior to prevent digit ghosting from non-monospaced font
+        drawRoundedRect(cardX, cardY, cardW, cardH, cardR, cardColor);
+        m_manager.drawString(lv_displayTime, ScreenCenterX, clockY, 42, Align::MiddleCenter, timeColor, cardColor);
+        m_manager.setFont(DEFAULT_FONT);
+
+        // --- AM/PM if 12h format ---
+        if (lv_displayAM != "") {
+            m_manager.drawString(lv_displayAM, ScreenCenterX + cardW / 2 - 22, clockY + 12, 12, Align::MiddleCenter, timeColor, cardColor);
+        }
+
+        // --- GMT offset below the card ---
         if (lv_zoneDiff != zone.m_zoneDiff || force) {
-            m_manager.fillRect(ScreenCenterX - 35, offsetY - 10, 72, 22, m_backgroundColor);
+            m_manager.fillRect(ScreenCenterX - 60, offsetY - 12, 120, 24, m_backgroundColor);
             if (zone.timeZoneOffset == -1)
                 m_manager.setFontColor(TFT_RED);
             m_manager.drawString(lv_offsetStr, ScreenCenterX, offsetY, 16, Align::MiddleCenter);
@@ -310,20 +377,15 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
                 }
             }
         }
-
-        String minuteStr = (lv_minute < 10) ? "0" + String(lv_minute) : String(lv_minute);
-        String lv_displayTime = lv_displayHour + ":" + minuteStr;
-        m_manager.fillRect(14, 82, 215, 69, m_backgroundColor);
-        m_manager.drawString(lv_displayTime, ScreenCenterX, clockY, 62, Align::MiddleCenter);
     }
 }
 
-void FiveZoneWidget ::buttonPressed(uint8_t buttonId, ButtonState state) {
+void FiveZoneWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
     if (buttonId == BUTTON_OK && state == BTN_MEDIUM) {
         changeFormat();
     }
 }
 
-String FiveZoneWidget ::getName() {
+String FiveZoneWidget::getName() {
     return "5 Zone Clock";
 }

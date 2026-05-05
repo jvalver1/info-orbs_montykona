@@ -66,8 +66,10 @@ private:
     String m_time;
     String m_weekday;
     std::string m_timezoneLocation = TIMEZONE_API_LOCATION;
-    int m_timeZoneOffset = -1; // A value that will be overwritten by the API
+    int m_timeZoneOffset = 0; // UTC offset in seconds, updated by timezone API
     unsigned long m_nextTimeZoneUpdate = 0;
+    bool m_timeZoneFetched = false; // True once API has successfully provided an offset
+    bool m_posixTzConfigured = false; // True once configTzTime() has been called
 
     WiFiUDP m_udp;
     NTPClient *m_timeClient{nullptr};

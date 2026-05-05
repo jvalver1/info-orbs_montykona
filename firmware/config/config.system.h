@@ -112,7 +112,7 @@
 #endif
 
 #ifndef TIMEZONE_API_URL
-    #define TIMEZONE_API_URL "https://timeapi.io/api/timezone/zone"
+    #define TIMEZONE_API_URL "http://timeapi.io/api/timezone/zone"
 #endif
 
 #ifndef TIMEZONE_API_LOCATION
