@@ -90,9 +90,49 @@ void FiveZoneWidget::getTZoneOffset(int8_t zoneIndex) {
         return;
     }
 
-    zone.timeZoneOffset = m_time->getOffsetForTimezone(zone.tzInfo.c_str(), zone.timeZoneOffset);
-    DEBUG_PRINTF("Zone %d (%s): offset=%d sec (%d hours)\n",
-                 zoneIndex, zone.tzInfo.c_str(), zone.timeZoneOffset, zone.timeZoneOffset / 3600);
+    // Look up POSIX timezone string for this zone's IANA identifier
+    const char *posixTz = getPosixTz(zone.tzInfo.c_str());
+    if (posixTz == nullptr) {
+        DEBUG_PRINTF("Zone %d: No POSIX TZ for '%s', keeping hardcoded offset %d\n",
+                     zoneIndex, zone.tzInfo.c_str(), zone.timeZoneOffset);
+        zone.nextTimeZoneUpdate = m_time->getUnixEpoch() + 3600; // Retry in 1 hour
+        return;
+    }
+
+    // Temporarily set the system timezone to this zone's POSIX string
+    // to compute the current UTC offset (including DST)
+    const char *savedTz = getenv("TZ");
+    String savedTzStr = savedTz ? String(savedTz) : "";
+
+    setenv("TZ", posixTz, 1);
+    tzset();
+
+    // Get current time in this timezone
+    struct tm tmLocal;
+    localtime_r(&now, &tmLocal);
+
+    // Compute UTC offset by comparing local and UTC representations
+    time_t localEpoch = mktime(&tmLocal);
+    struct tm tmUtc;
+    gmtime_r(&localEpoch, &tmUtc);
+    tmUtc.tm_isdst = 0;
+    time_t utcEpoch = mktime(&tmUtc);
+    zone.timeZoneOffset = (int) difftime(localEpoch, utcEpoch);
+
+    DEBUG_PRINTF("Zone %d (%s): POSIX='%s', offset=%d sec (%d hours), DST=%s\n",
+                 zoneIndex, zone.tzInfo.c_str(), posixTz,
+                 zone.timeZoneOffset, zone.timeZoneOffset / 3600,
+                 tmLocal.tm_isdst > 0 ? "active" : "inactive");
+
+    // Restore the original timezone
+    if (savedTzStr.length() > 0) {
+        setenv("TZ", savedTzStr.c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
+
+    // Refresh hourly to catch DST transitions
     zone.nextTimeZoneUpdate = m_time->getUnixEpoch() + 3600;
 }
 

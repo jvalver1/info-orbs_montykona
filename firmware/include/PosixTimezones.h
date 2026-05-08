@@ -129,7 +129,7 @@ static const int TZ_DATABASE_SIZE = sizeof(TZ_DATABASE) / sizeof(TZ_DATABASE[0])
 
 // Lookup POSIX timezone string from IANA identifier
 // Returns nullptr if not found
-inline const char* getPosixTz(const char* iana) {
+inline const char *getPosixTz(const char *iana) {
     // Linear search (database is small enough for embedded use)
     for (int i = 0; i < TZ_DATABASE_SIZE; i++) {
         if (strcmp(TZ_DATABASE[i].iana, iana) == 0) {
