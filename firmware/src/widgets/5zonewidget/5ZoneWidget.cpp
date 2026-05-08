@@ -9,7 +9,7 @@
 
 FiveZoneWidget::FiveZoneWidget(ScreenManager &manager, ConfigManager &config) : Widget(manager, config) {
     m_enabled = (INCLUDE_5ZONE == WIDGET_ON);
-    m_time = GlobalTime::getInstance();
+    m_time = nullptr;
 
     m_config.addConfigBool("FiveZoneWidget", "5zoEnabled", &m_enabled, t_enableWidget);
     m_config.addConfigBool("FiveZoneWidget", "showBizHours", &m_showBizHours, t_5zoneShowBizHours, false);
@@ -79,71 +79,31 @@ void FiveZoneWidget::drawCountryFlag(const String &countryCode, int x, int y, in
 }
 
 void FiveZoneWidget::setup() {
+    m_time = GlobalTime::getInstance();
 }
 
 void FiveZoneWidget::getTZoneOffset(int8_t zoneIndex) {
     TimeZone &zone = m_timeZones[zoneIndex];
 
-    // Check if system time is valid (SNTP may not have synced yet)
-    time_t now;
-    time(&now);
-    struct tm checkTm;
-    gmtime_r(&now, &checkTm);
-    if (checkTm.tm_year + 1900 < 2025) {
-        DEBUG_PRINTF("Zone %d: System time not synced yet (year=%d), deferring offset computation\n",
-                     zoneIndex, checkTm.tm_year + 1900);
-        // Don't set nextTimeZoneUpdate — will retry on next update cycle
+    if (!m_time || !m_time->isTimeValid()) {
+        DEBUG_PRINTF("Zone %d: System time not synced yet, deferring offset computation\n", zoneIndex);
         return;
     }
 
-    // Look up POSIX timezone string for this zone's IANA identifier
-    const char *posixTz = getPosixTz(zone.tzInfo.c_str());
-    if (posixTz == nullptr) {
-        DEBUG_PRINTF("Zone %d: No POSIX TZ for '%s', keeping hardcoded offset %d\n",
-                     zoneIndex, zone.tzInfo.c_str(), zone.timeZoneOffset);
-        zone.nextTimeZoneUpdate = m_time->getUnixEpoch() + 3600; // Retry in 1 hour
-        return;
-    }
-
-    // Temporarily set the system timezone to this zone's POSIX string
-    // to compute the current UTC offset (including DST)
-    const char *savedTz = getenv("TZ");
-    String savedTzStr = savedTz ? String(savedTz) : "";
-
-    setenv("TZ", posixTz, 1);
-    tzset();
-
-    // Get current time in this timezone
-    struct tm tmLocal;
-    localtime_r(&now, &tmLocal);
-
-    // Compute UTC offset by comparing local and UTC representations
-    time_t localEpoch = mktime(&tmLocal);
-    struct tm tmUtc;
-    gmtime_r(&localEpoch, &tmUtc);
-    tmUtc.tm_isdst = 0;
-    time_t utcEpoch = mktime(&tmUtc);
-    zone.timeZoneOffset = (int)difftime(localEpoch, utcEpoch);
-
-    DEBUG_PRINTF("Zone %d (%s): POSIX='%s', offset=%d sec (%d hours), DST=%s\n",
-                 zoneIndex, zone.tzInfo.c_str(), posixTz,
-                 zone.timeZoneOffset, zone.timeZoneOffset / 3600,
-                 tmLocal.tm_isdst > 0 ? "active" : "inactive");
-
-    // Restore the original timezone
-    if (savedTzStr.length() > 0) {
-        setenv("TZ", savedTzStr.c_str(), 1);
-    } else {
-        unsetenv("TZ");
-    }
-    tzset();
-
-    // Refresh hourly to catch DST transitions
+    zone.timeZoneOffset = m_time->getOffsetForTimezone(zone.tzInfo.c_str(), zone.timeZoneOffset);
+    DEBUG_PRINTF("Zone %d (%s): offset=%d sec (%d hours)\n",
+                 zoneIndex, zone.tzInfo.c_str(), zone.timeZoneOffset, zone.timeZoneOffset / 3600);
     zone.nextTimeZoneUpdate = m_time->getUnixEpoch() + 3600;
 }
 
 void FiveZoneWidget::update(bool force) {
+    if (m_time == nullptr) {
+        m_time = GlobalTime::getInstance();
+    }
     m_time->updateTime(true);
+    if (!m_time->isTimeValid()) {
+        return;
+    }
     int clockStamp = getClockStamp();
 
     if (clockStamp != m_clockStampU || force) {
@@ -279,6 +239,10 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
 
     TimeZone &zone = m_timeZones[displayIndex];
 
+    if (m_time == nullptr || !m_time->isTimeValid()) {
+        return;
+    }
+
     DEBUG_PRINTF("Zone %d: name='%s', tzInfo='%s', offset=%d\n",
                  displayIndex,
                  zone.locName.c_str(),
@@ -290,7 +254,7 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
         m_localTimeZone.timeZoneOffset = m_time->getTimeZoneOffset();
         m_unixEpoch = m_time->getUnixEpoch();
 
-        lv_unixEpoch = m_unixEpoch + zone.timeZoneOffset - m_localTimeZone.timeZoneOffset;
+        lv_unixEpoch = m_unixEpoch + zone.timeZoneOffset;
         lv_hour = hour(lv_unixEpoch);
         lv_minute = minute(lv_unixEpoch);
         lv_day = day(lv_unixEpoch);

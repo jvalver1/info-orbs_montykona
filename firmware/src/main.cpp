@@ -107,8 +107,9 @@ void setup() {
     wifiWidget->setup();
     MainHelper::watchdogReset(); // Reset after WiFi setup
 
-    globalTime = GlobalTime::getInstance();
     addWidgets();
+    globalTime = GlobalTime::getInstance();
+    globalTime->updateTime(true);
     MainHelper::watchdogReset(); // Reset after widget initialization
 
     config->setupWebPortal();

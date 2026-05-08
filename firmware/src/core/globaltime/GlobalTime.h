@@ -47,6 +47,8 @@ public:
     bool getFormat24Hour();
     bool setFormat24Hour(bool format24hour);
     int getTimeZoneOffset();
+    int getOffsetForTimezone(const char *timezoneLocation, int fallbackOffset);
+    bool isTimeValid();
 
 private:
     GlobalTime();
@@ -84,6 +86,7 @@ private:
     std::string m_ntpServer{NTP_SERVER};
 
     void getTimeZoneOffsetFromAPI();
+    int calculateActiveTimezoneOffset(time_t utcEpoch);
 };
 
 #endif // GLOBALTIME_H

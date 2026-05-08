@@ -52,12 +52,15 @@ void GlobalTime::updateTime(bool force) {
     if (force || millis() - m_updateTimer > m_oneSecond) {
         m_updateTimer = millis();
         m_timeClient->update();
-        if (m_timeClient->isTimeSet()) {
+        time_t now;
+        time(&now);
+        if ((m_posixTzConfigured && now > 1735689600) || m_timeClient->isTimeSet()) {
             // Use ESP32 system time with POSIX timezone (handles DST automatically)
             struct tm timeinfo;
-            if (m_posixTzConfigured && getLocalTime(&timeinfo, 0)) {
+            if (m_posixTzConfigured && now > 1735689600) {
+                localtime_r(&now, &timeinfo);
                 // getLocalTime succeeded — use system time with DST applied
-                m_unixEpoch = mktime(&timeinfo);
+                m_unixEpoch = now;
                 m_minute = timeinfo.tm_min;
                 if (m_format24hour) {
                     m_hour = timeinfo.tm_hour;
@@ -74,13 +77,7 @@ void GlobalTime::updateTime(bool force) {
                 m_weekday = i18n(t_weekdays, timeinfo.tm_wday); // tm_wday: 0=Sunday
                 m_time = String(m_hour) + ":" + (m_minute < 10 ? "0" + String(m_minute) : String(m_minute));
 
-                // Compute timezone offset by comparing local and UTC time
-                time_t localEpoch = mktime(&timeinfo);
-                struct tm utcinfo;
-                gmtime_r(&localEpoch, &utcinfo);
-                utcinfo.tm_isdst = 0; // Force no DST for UTC conversion
-                time_t utcEpoch = mktime(&utcinfo);
-                m_timeZoneOffset = (int)difftime(localEpoch, utcEpoch);
+                m_timeZoneOffset = calculateActiveTimezoneOffset(now);
                 if (!m_timeZoneFetched) {
                     DEBUG_PRINTF("GlobalTime: Local time via POSIX TZ: %04d-%02d-%02d %02d:%02d:%02d (UTC offset: %d sec, DST: %s)\n",
                                  m_year, m_month, m_day, m_hour24, m_minute, m_second,
@@ -207,4 +204,58 @@ bool GlobalTime::setFormat24Hour(bool format24hour) {
 
 int GlobalTime::getTimeZoneOffset() {
     return m_timeZoneOffset;
+}
+
+bool GlobalTime::isTimeValid() {
+    return m_unixEpoch > 1735689600; // 2025-01-01 UTC
+}
+
+int GlobalTime::calculateActiveTimezoneOffset(time_t utcEpoch) {
+    struct tm tmLocal;
+    localtime_r(&utcEpoch, &tmLocal);
+
+    const char *savedTz = getenv("TZ");
+    String savedTzStr = savedTz ? String(savedTz) : "";
+
+    setenv("TZ", "UTC0", 1);
+    tzset();
+    tmLocal.tm_isdst = 0;
+    time_t localAsUtcEpoch = mktime(&tmLocal);
+
+    if (savedTzStr.length() > 0) {
+        setenv("TZ", savedTzStr.c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
+
+    return (int)difftime(localAsUtcEpoch, utcEpoch);
+}
+
+int GlobalTime::getOffsetForTimezone(const char *timezoneLocation, int fallbackOffset) {
+    if (!isTimeValid()) {
+        return fallbackOffset;
+    }
+
+    const char *posixTz = getPosixTz(timezoneLocation);
+    if (posixTz == nullptr) {
+        DEBUG_PRINTF("GlobalTime: No POSIX TZ for '%s', keeping fallback offset %d\n", timezoneLocation, fallbackOffset);
+        return fallbackOffset;
+    }
+
+    const char *savedTz = getenv("TZ");
+    String savedTzStr = savedTz ? String(savedTz) : "";
+
+    setenv("TZ", posixTz, 1);
+    tzset();
+    const int offset = calculateActiveTimezoneOffset(m_unixEpoch);
+
+    if (savedTzStr.length() > 0) {
+        setenv("TZ", savedTzStr.c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
+
+    return offset;
 }
