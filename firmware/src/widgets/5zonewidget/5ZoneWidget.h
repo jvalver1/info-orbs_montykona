@@ -70,7 +70,7 @@ private:
 
     std::string m_timezoneLocation = TIMEZONE_API_LOCATION;
     int m_format = CLOCK_FORMAT;
-    bool m_showBizHours;
+    bool m_showBizHours = false;
 };
 
 #endif // FIVE_ZONE_WIDGET_H

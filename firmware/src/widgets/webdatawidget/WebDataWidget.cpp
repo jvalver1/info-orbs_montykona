@@ -55,7 +55,8 @@ void WebDataWidget::update(bool force) {
                     // Handle legacy response that doesn't have response level data
                     array = doc.as<JsonArray>();
                 }
-                for (int i = 0; i < array.size(); i++) {
+                int displayCount = min((int) array.size(), 5);
+                for (int i = 0; i < displayCount; i++) {
                     m_obj[i].parseData(array[i].as<JsonObject>(), m_defaultColor, m_defaultBackground);
                 }
                 m_lastUpdate = millis();

@@ -1,4 +1,5 @@
 #include "TaskManager.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 #include "GlobalResources.h"
 #include "Utils.h"
@@ -90,6 +91,7 @@ void TaskManager::processAwaitingTasks() {
                  uxQueueMessagesWaiting(requestQueue));
 #endif
 
+    CrashTrace::mark("task:create", taskParams->url);
     TaskHandle_t taskHandle;
     BaseType_t result = xTaskCreate(
         [](void *params) {
@@ -137,6 +139,7 @@ void TaskManager::processTaskResponses() {
 
     ResponseData *responseData;
     while (xQueueReceive(responseQueue, &responseData, 0) == pdPASS) {
+        CrashTrace::mark("task:response-callback", responseData->url);
         responseData->callback(responseData->httpCode, responseData->response);
         delete responseData; // Ensure the object is deleted after processing
     }

@@ -1,4 +1,5 @@
 #include "5zonewidget/5ZoneWidget.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 #include "GlobalResources.h"
 #include "MainHelper.h"
@@ -78,12 +79,17 @@ void setup() {
     Log.setPrefix(MainHelper::printPrefix);
 #endif
     Log.begin(LOG_LEVEL, &Serial);
+    CrashTrace::printLastReset();
+    CrashTrace::mark("setup:start");
     DEBUG_PRINTF("🚀 Starting up...\n");
     DEBUG_PRINTF("PCB Version: %s\n", PCB_VERSION);
 
     wifiManager = new OrbsWiFiManager();
+    CrashTrace::mark("setup:wifi-manager");
     config = new ConfigManager(*wifiManager);
+    CrashTrace::mark("setup:config-manager");
     sm = new ScreenManager(tft);
+    CrashTrace::mark("setup:screen-manager");
     widgetSet = new WidgetSet(sm);
 
     // Pass references to MainHelper
@@ -91,13 +97,16 @@ void setup() {
     MainHelper::watchdogReset(); // Reset after basic initialization
 
     MainHelper::setupLittleFS();
+    CrashTrace::mark("setup:littlefs");
     MainHelper::watchdogReset(); // Reset after LittleFS mounting
 
     MainHelper::setupConfig();
+    CrashTrace::mark("setup:config");
     MainHelper::watchdogReset(); // Reset after config loading
 
     MainHelper::setupButtons();
     MainHelper::showWelcome();
+    CrashTrace::mark("setup:welcome");
 
     pinMode(BUSY_PIN, OUTPUT);
     DEBUG_PRINTF("Connecting to WiFi\n");
@@ -105,14 +114,18 @@ void setup() {
 
     wifiWidget = new WifiWidget(*sm, *config, *wifiManager);
     wifiWidget->setup();
+    CrashTrace::mark("setup:wifi-widget");
     MainHelper::watchdogReset(); // Reset after WiFi setup
 
     addWidgets();
+    CrashTrace::mark("setup:widgets-added");
     globalTime = GlobalTime::getInstance();
+    CrashTrace::mark("setup:global-time");
     globalTime->updateTime(true);
     MainHelper::watchdogReset(); // Reset after widget initialization
 
     config->setupWebPortal();
+    CrashTrace::mark("setup:complete");
     MainHelper::resetCycleTimer();
 }
 
@@ -125,20 +138,28 @@ void loop() {
         delay(100);
     } else {
         if (!widgetSet->initialUpdateDone()) {
+            CrashTrace::mark("loop:initial-update");
             widgetSet->initializeAllWidgetsData();
             MainHelper::setupWebPortalEndpoints();
         }
+        CrashTrace::mark("loop:time");
         globalTime->updateTime();
 
+        CrashTrace::mark("loop:buttons");
         MainHelper::checkButtons();
 
+        CrashTrace::mark("loop:update-current", widgetSet->getCurrent()->getName());
         widgetSet->updateCurrent();
         MainHelper::updateBrightnessByTime(globalTime->getHour24());
+        CrashTrace::mark("loop:draw-current", widgetSet->getCurrent()->getName());
         widgetSet->drawCurrent();
 
+        CrashTrace::mark("loop:cycle");
         MainHelper::checkCycleWidgets();
         wifiManager->process();
+        CrashTrace::mark("loop:tasks-awaiting");
         TaskManager::getInstance()->processAwaitingTasks();
+        CrashTrace::mark("loop:task-responses");
         TaskManager::getInstance()->processTaskResponses();
     }
 #ifdef MEMORY_DEBUG_INTERVAL

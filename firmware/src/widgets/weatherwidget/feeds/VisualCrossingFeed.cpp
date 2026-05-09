@@ -1,5 +1,6 @@
 #include "VisualCrossingFeed.h"
 #include "../WeatherTranslations.h"
+#include "CrashTrace.h"
 #include "GlobalTime.h"
 #include "TaskFactory.h"
 #include "config_helper.h"
@@ -26,8 +27,9 @@ bool VisualCrossingFeed::getWeatherData(WeatherDataModel &model) {
                                 String(m_weatherLocation.c_str()) + "/next3days?key=" + apiKey + "&unitGroup=" + tempUnits +
                                 "&include=days,current&iconSet=icons1&lang=" + lang;
 
+    WeatherDataModel *modelPtr = &model;
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this, &model](int httpCode, const String &response) { processResponse(httpCode, response, model); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
+        httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
 
     if (!task) {
         Log.errorln("Failed to create weather task");
@@ -47,11 +49,13 @@ void VisualCrossingFeed::preProcessResponse(int httpCode, String &response) {
         JsonDocument filter;
         filter["resolvedAddress"] = true;
         filter["currentConditions"]["temp"] = true;
-        filter["days"][0]["description"] = true;
         filter["currentConditions"]["icon"] = true;
-        filter["days"][0]["icon"] = true;
-        filter["days"][0]["tempmax"] = true;
-        filter["days"][0]["tempmin"] = true;
+        for (int i = 0; i < 4; i++) {
+            filter["days"][i]["description"] = true;
+            filter["days"][i]["icon"] = true;
+            filter["days"][i]["tempmax"] = true;
+            filter["days"][i]["tempmin"] = true;
+        }
 
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
@@ -66,6 +70,7 @@ void VisualCrossingFeed::preProcessResponse(int httpCode, String &response) {
 }
 
 void VisualCrossingFeed::processResponse(int httpCode, const String &response, WeatherDataModel &model) {
+    CrashTrace::mark("weather:visualcrossing:process");
     if (httpCode > 0) {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response);

@@ -9,6 +9,7 @@
 // factor out the text wrapping (there's a utils for that already, if that doesn't work, why not?)
 
 #include "WeatherWidget.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 #include "WeatherTranslations.h"
 #include "feeds/OpenWeatherMapFeed.h"
@@ -70,6 +71,7 @@ void WeatherWidget::setup() {
 }
 
 void WeatherWidget::draw(bool force) {
+    CrashTrace::mark("weather:draw");
     m_manager.setFont(DEFAULT_FONT);
     m_time->updateTime();
     int clockStamp = getClockStamp();
@@ -96,6 +98,7 @@ void WeatherWidget::draw(bool force) {
 }
 
 void WeatherWidget::update(bool force) {
+    CrashTrace::mark("weather:update");
     if (force) {
         int retry = 0;
         while (!weatherFeed->getWeatherData(model) && retry++ < MAX_RETRIES)
@@ -166,8 +169,8 @@ void WeatherWidget::drawWeatherIcon(int displayIndex, const String &condition, i
         Log.warningln("Unknown weather icon: %s", condition.c_str());
     }
 
-    const int size = iconEnd - iconStart;
-    if (iconStart != NULL && size > 0) {
+    if (iconStart != NULL && iconEnd != NULL && iconEnd > iconStart) {
+        const int size = iconEnd - iconStart;
         showJPG(displayIndex, x, y, iconStart, size, scale);
     }
 }
@@ -200,25 +203,8 @@ void WeatherWidget::singleWeatherDeg(int displayIndex) {
 void WeatherWidget::weatherText(int displayIndex) {
     m_manager.selectScreen(displayIndex);
 
-    //=== TEXT OVERFLOW ============================
-    // This takes a given string a and breaks it down in max x character long strings ensuring not to break it only at a space.
-    // Given the small width of the screens this will porbablly be needed to this project again so making sure to outline it
-    // clearly as this should liekly eventually be turned into a fucntion. Before use the array size should be made to be dynamic.
-    // In this case its used for the weather text description
-
-    String message = model.getCurrentText() + " ";
-    String messageArr[4];
-    int variableRangeS = 0;
-    int variableRangeE = 24;
-    for (int i = 0; i < 4; i++) {
-        while (message.substring(variableRangeE - 1, variableRangeE) != " ") {
-            variableRangeE--;
-        }
-        messageArr[i] = message.substring(variableRangeS, variableRangeE);
-        variableRangeS = variableRangeE;
-        variableRangeE = variableRangeS + 24;
-    }
-    //=== OVERFLOW END ==============================
+    String messageArr[MAX_WRAPPED_LINES];
+    Utils::getWrappedLines(messageArr, model.getCurrentText(), 24);
 
     m_manager.fillScreen(m_backgroundColor);
     String cityName = model.getCityName();

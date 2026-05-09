@@ -1,5 +1,6 @@
 #include "OpenWeatherMapFeed.h"
 #include "../WeatherTranslations.h"
+#include "CrashTrace.h"
 #include "GlobalTime.h"
 #include "TaskFactory.h"
 #include "config_helper.h"
@@ -26,8 +27,9 @@ bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
                                 +"&appid=" + apiKey + "&units=" + weatherUnits + "&exclude=minutely,hourly,alerts&lang=" + lang +
                                 "&cnt=3";
 
+    WeatherDataModel *modelPtr = &model;
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this, &model](int httpCode, const String &response) { processResponse(httpCode, response, model); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
+        httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
 
     if (!task) {
         Log.errorln("Failed to create weather task");
@@ -50,13 +52,15 @@ void OpenWeatherMapFeed::preProcessResponse(int httpCode, String &response) {
         filter["current"]["weather"][0]["description"] = true;
         filter["current"]["weather"][0]["icon"] = true;
 
-        filter["daily"][0]["dt"] = true;
-        filter["daily"][0]["summary"] = true;
-        filter["daily"][0]["temp"]["min"] = true;
-        filter["daily"][0]["temp"]["max"] = true;
-        filter["daily"][0]["weather"][0]["main"] = true;
-        filter["daily"][0]["weather"][0]["description"] = true;
-        filter["daily"][0]["weather"][0]["icon"] = true;
+        for (int i = 0; i < 4; i++) {
+            filter["daily"][i]["dt"] = true;
+            filter["daily"][i]["summary"] = true;
+            filter["daily"][i]["temp"]["min"] = true;
+            filter["daily"][i]["temp"]["max"] = true;
+            filter["daily"][i]["weather"][0]["main"] = true;
+            filter["daily"][i]["weather"][0]["description"] = true;
+            filter["daily"][i]["weather"][0]["icon"] = true;
+        }
 
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
@@ -71,6 +75,7 @@ void OpenWeatherMapFeed::preProcessResponse(int httpCode, String &response) {
 }
 
 void OpenWeatherMapFeed::processResponse(int httpCode, const String &response, WeatherDataModel &model) {
+    CrashTrace::mark("weather:openweathermap:process");
     if (httpCode > 0) {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response);
@@ -88,7 +93,7 @@ void OpenWeatherMapFeed::processResponse(int httpCode, const String &response, W
 
             Log.traceln("Weather data: %s", response.c_str());
             for (int i = 1; i < 4; i++) {
-                model.setDayIcon(i - 1, translateIcon(doc["daily"][i]["weather"]["icon"]));
+                model.setDayIcon(i - 1, translateIcon(doc["daily"][i]["weather"][0]["icon"]));
                 model.setDayHigh(i - 1, doc["daily"][i]["temp"]["max"].as<float>());
                 model.setDayLow(i - 1, doc["daily"][i]["temp"]["min"].as<float>());
             }

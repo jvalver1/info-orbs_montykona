@@ -109,15 +109,16 @@ void FiveZoneWidget::getTZoneOffset(int8_t zoneIndex) {
 
     // Get current time in this timezone
     struct tm tmLocal;
-    localtime_r(&now, &tmLocal);
+    time_t utcEpoch = m_time->getUnixEpoch();
+    localtime_r(&utcEpoch, &tmLocal);
 
     // Compute UTC offset by comparing local and UTC representations
     time_t localEpoch = mktime(&tmLocal);
     struct tm tmUtc;
     gmtime_r(&localEpoch, &tmUtc);
     tmUtc.tm_isdst = 0;
-    time_t utcEpoch = mktime(&tmUtc);
-    zone.timeZoneOffset = (int) difftime(localEpoch, utcEpoch);
+    time_t utcAsLocalEpoch = mktime(&tmUtc);
+    zone.timeZoneOffset = (int) difftime(localEpoch, utcAsLocalEpoch);
 
     DEBUG_PRINTF("Zone %d (%s): POSIX='%s', offset=%d sec (%d hours), DST=%s\n",
                  zoneIndex, zone.tzInfo.c_str(), posixTz,

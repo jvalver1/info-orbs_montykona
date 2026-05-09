@@ -50,6 +50,7 @@ public:
         int httpCode;
         String response;
         ResponseCallback callback;
+        String url;
     };
 
     static TaskManager *getInstance();
@@ -83,7 +84,7 @@ private:
 
     static TaskManager *instance;
 
-    static const uint16_t STACK_SIZE = 6000;
+    static const uint16_t STACK_SIZE = 10000;
     static const UBaseType_t TASK_PRIORITY = 1;
     static const UBaseType_t REQUEST_QUEUE_SIZE = 20;
     static const UBaseType_t REQUEST_QUEUE_ITEM_SIZE = sizeof(TaskParams *);

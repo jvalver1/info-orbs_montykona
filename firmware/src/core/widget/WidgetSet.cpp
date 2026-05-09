@@ -1,4 +1,5 @@
 #include "WidgetSet.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 #include <ArduinoLog.h>
 
@@ -23,6 +24,7 @@ void WidgetSet::drawCurrent(bool force) {
     Widget *currentWidget = m_widgets[m_currentWidget];
     if (force || currentWidget->isItTimeToDraw()) {
         DEBUG_PRINTF("Drawing widget: %s\n", currentWidget->getName().c_str());
+        CrashTrace::mark("widget:draw", currentWidget->getName());
         if (m_clearScreensOnDrawCurrent) {
             m_screenManager->clearAllScreens();
             m_clearScreensOnDrawCurrent = false;
@@ -37,6 +39,7 @@ void WidgetSet::updateCurrent() {
     Widget *currentWidget = m_widgets[m_currentWidget];
     if (currentWidget->isItTimeToUpdate()) {
         DEBUG_PRINTF("Updating widget: %s\n", currentWidget->getName().c_str());
+        CrashTrace::mark("widget:update", currentWidget->getName());
         currentWidget->update();
     }
 }
@@ -79,6 +82,7 @@ void WidgetSet::prev() {
 }
 
 void WidgetSet::switchWidget() {
+    CrashTrace::mark("widget:switch", getCurrent()->getName());
     m_screenManager->clearAllScreens();
     getCurrent()->setup();
     uint32_t start = millis();
@@ -102,6 +106,7 @@ void WidgetSet::updateAll() {
     for (uint8_t i = 0; i < m_widgetCount; i++) {
         if (m_widgets[i]->isEnabled()) {
             DEBUG_PRINTF("updating widget %s\n", m_widgets[i]->getName().c_str());
+            CrashTrace::mark("widget:update-all", m_widgets[i]->getName());
             showCenteredLine(4, m_widgets[i]->getName());
             m_widgets[i]->update();
         }

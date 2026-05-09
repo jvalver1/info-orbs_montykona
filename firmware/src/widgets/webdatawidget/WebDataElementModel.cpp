@@ -9,6 +9,10 @@
 #include "WebDataElementTextModel.h"
 #include "WebDataElementTriangleModel.h"
 
+WebDataElementModel::~WebDataElementModel() {
+    delete m_element;
+}
+
 void WebDataElementModel::setType(const String &type) {
     if (type == "text") {
         m_type = TEXT;

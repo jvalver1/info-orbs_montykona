@@ -1,5 +1,6 @@
 #include "TempestFeed.h"
 #include "../WeatherTranslations.h"
+#include "CrashTrace.h"
 #include "GlobalTime.h"
 #include "TaskFactory.h"
 #include "config_helper.h"
@@ -24,8 +25,9 @@ bool TempestFeed::getWeatherData(WeatherDataModel &model) {
     String httpRequestAddress = String(m_proxyUrl.c_str()) + "?station_id=" + String(m_stationId.c_str()) +
                                 "&units_temp=" + tempUnits + "&units_wind=mph&units_pressure=mb&units_precip=in&units_distance=mi&api_key=" + apiKey;
 
+    WeatherDataModel *modelPtr = &model;
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this, &model](int httpCode, const String &response) { processResponse(httpCode, response, model); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
+        httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
 
     if (!task) {
         Log.errorln("Failed to create weather task");
@@ -45,10 +47,12 @@ void TempestFeed::preProcessResponse(int httpCode, String &response) {
         JsonDocument filter;
         filter["current_conditions"]["air_temperature"] = true;
         filter["current_conditions"]["icon"] = true;
-        filter["forecast"]["daily"][0]["air_temp_high"] = true;
-        filter["forecast"]["daily"][0]["air_temp_low"] = true;
-        filter["forecast"]["daily"][0]["conditions"] = true;
-        filter["forecast"]["daily"][0]["icon"] = true;
+        for (int i = 0; i < 3; i++) {
+            filter["forecast"]["daily"][i]["air_temp_high"] = true;
+            filter["forecast"]["daily"][i]["air_temp_low"] = true;
+            filter["forecast"]["daily"][i]["conditions"] = true;
+            filter["forecast"]["daily"][i]["icon"] = true;
+        }
 
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
@@ -63,6 +67,7 @@ void TempestFeed::preProcessResponse(int httpCode, String &response) {
 }
 
 void TempestFeed::processResponse(int httpCode, const String &response, WeatherDataModel &model) {
+    CrashTrace::mark("weather:tempest:process");
     if (httpCode > 0) {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response);

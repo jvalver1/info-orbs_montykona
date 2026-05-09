@@ -1,4 +1,5 @@
 #include "StockWidget.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 #include "StockTranslations.h"
 #include "TaskFactory.h"
@@ -14,7 +15,7 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
 
     m_config.addConfigBool("StockWidget", "stocksEnabled", &m_enabled, t_enableWidget);
     m_config.addConfigString("StockWidget", "stockList", &m_stockList, 200, t_stockList);
-    char stockList[m_stockList.size()];
+    char stockList[m_stockList.size() + 1];
     strcpy(stockList, m_stockList.c_str());
 
     m_config.addConfigComboBox("StockWidget", "stockchgFmt", &m_stockchangeformat, t_stockChangeFormats, t_stockChangeFormat, true);
@@ -22,7 +23,7 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
 
     char *symbol = strtok(stockList, ",");
     m_stockCount = 0;
-    do {
+    while (symbol != nullptr) {
         if (m_stockCount >= MAX_STOCKS) {
             Log.warningln("MAX STOCKS UNABLE TO ADD MORE");
             break;
@@ -31,7 +32,8 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
         stockModel.setSymbol(String(symbol));
         m_stocks[m_stockCount] = stockModel;
         m_stockCount++;
-    } while (symbol = strtok(nullptr, ","));
+        symbol = strtok(nullptr, ",");
+    }
     m_pageCount = 1 + ((m_stockCount - 1) / NUM_SCREENS); // int division round up
     DEBUG_PRINTF("StockWidget initialized\n");
     DEBUG_PRINTF("StockWidget Pages: %d across %d symbools.\n", m_pageCount, m_stockCount);
@@ -77,10 +79,10 @@ void StockWidget::update(bool force) {
         DEBUG_PRINTF("StockWidget::update - %s\n", m_stocks[i].getSymbol().c_str());
         String url = "https://api.twelvedata.com/quote?apikey=e03fc53524454ab8b65d91b23c669cc5&symbol=" + m_stocks[i].getSymbol();
 
-        StockDataModel &stock = m_stocks[i];
+        StockDataModel *stock = &m_stocks[i];
 
-        auto task = TaskFactory::createHttpGetTask(url, [this, &stock](int httpCode, const String &response) {
-            processResponse(stock, httpCode, response);
+        auto task = TaskFactory::createHttpGetTask(url, [this, stock](int httpCode, const String &response) {
+            processResponse(*stock, httpCode, response);
         });
 
         TaskManager::getInstance()->addTask(std::move(task));
@@ -88,6 +90,7 @@ void StockWidget::update(bool force) {
 }
 
 void StockWidget::processResponse(StockDataModel &stock, int httpCode, const String &response) {
+    CrashTrace::mark("stock:process-response", stock.getSymbol());
     if (httpCode > 0) {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response);

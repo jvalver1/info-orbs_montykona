@@ -1,5 +1,9 @@
 #include "WebDataModel.h"
 
+WebDataModel::~WebDataModel() {
+    delete[] m_elements;
+}
+
 String WebDataModel::getLabel() {
     return m_label;
 }
@@ -30,7 +34,7 @@ void WebDataModel::setData(JsonArray data, int32_t defaultColor, int32_t default
     m_changed = true;
 }
 
-const WebDataElementModel &WebDataModel::getElement(int index) {
+WebDataElementModel &WebDataModel::getElement(int index) {
     return m_elements[index];
 }
 
@@ -168,7 +172,7 @@ void WebDataModel::draw(ScreenManager &manager) {
 
     if (getElementsCount() > 0) {
         for (int i = 0; i < getElementsCount(); i++) {
-            WebDataElementModel element = getElement(i);
+            WebDataElementModel &element = getElement(i);
             element.draw(manager);
         }
     } else {

@@ -89,7 +89,7 @@ String WeatherDataModel::getTodayLow(int8_t digits) {
 }
 
 WeatherDataModel &WeatherDataModel::setDaysIcons(String *icons) {
-    for (int i; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         setDayIcon(i, icons[i]);
     }
     return *this;
@@ -100,7 +100,7 @@ String &WeatherDataModel::getDaysIcons() {
 }
 
 WeatherDataModel &WeatherDataModel::setDayIcon(int num, String icon) {
-    if (num < 3 && m_daysIcons[num] != icon) {
+    if (num >= 0 && num < 3 && m_daysIcons[num] != icon) {
         m_daysIcons[num] = icon;
         m_changed = true;
     }
@@ -108,21 +108,21 @@ WeatherDataModel &WeatherDataModel::setDayIcon(int num, String icon) {
 }
 
 String WeatherDataModel::getDayIcon(int num) {
-    if (num >= 3) {
+    if (num < 0 || num >= 3) {
         return "";
     }
     return m_daysIcons[num];
 }
 
 WeatherDataModel &WeatherDataModel::setDaysLows(float *lows) {
-    for (int i; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         setDayLow(i, lows[i]);
     }
     return *this;
 }
 
 WeatherDataModel &WeatherDataModel::setDayLow(int num, float low) {
-    if (num < 3 && m_daysLow[num] != low) {
+    if (num >= 0 && num < 3 && m_daysLow[num] != low) {
         m_daysLow[num] = low;
         m_changed = true;
     }
@@ -134,13 +134,16 @@ float &WeatherDataModel::getDaysLows() {
 }
 
 float WeatherDataModel::getDayLow(int num) {
-    if (num >= 3) {
+    if (num < 0 || num >= 3) {
         return NaN;
     }
     return m_daysLow[num];
 }
 
 String WeatherDataModel::getDayLow(int8_t num, int8_t digits) {
+    if (num < 0 || num >= 3) {
+        return "";
+    }
     if (m_daysLow[num] == NaN) {
         return "";
     }
@@ -148,7 +151,7 @@ String WeatherDataModel::getDayLow(int8_t num, int8_t digits) {
 }
 
 WeatherDataModel &WeatherDataModel::setDaysHighs(float highs[3]) {
-    for (int i; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         setDayHigh(i, highs[i]);
     }
     return *this;
@@ -159,13 +162,16 @@ float &WeatherDataModel::getDaysHighs() {
 }
 
 float WeatherDataModel::getDayHigh(int num) {
-    if (num >= 3) {
+    if (num < 0 || num >= 3) {
         return NaN;
     }
     return m_daysHigh[num];
 }
 
 String WeatherDataModel::getDayHigh(int8_t num, int8_t digits) {
+    if (num < 0 || num >= 3) {
+        return "";
+    }
     if (m_daysHigh[num] == NaN) {
         return "";
     }
@@ -173,7 +179,7 @@ String WeatherDataModel::getDayHigh(int8_t num, int8_t digits) {
 }
 
 WeatherDataModel &WeatherDataModel::setDayHigh(int num, float high) {
-    if (num < 3 && m_daysHigh[num] != high) {
+    if (num >= 0 && num < 3 && m_daysHigh[num] != high) {
         if (m_daysHigh[num] != high) {
             m_daysHigh[num] = high;
             m_changed = true;

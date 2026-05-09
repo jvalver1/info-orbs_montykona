@@ -21,6 +21,8 @@ enum WebDataElementModelTypes {
 
 class WebDataElementModel {
 public:
+    ~WebDataElementModel();
+
     void setType(const String &type);
     WebDataElementModelTypes getType();
 
