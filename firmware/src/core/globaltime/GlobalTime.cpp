@@ -235,7 +235,7 @@ int GlobalTime::calculateActiveTimezoneOffset(time_t utcEpoch) {
     }
     tzset();
 
-    return (int)difftime(localAsUtcEpoch, utcEpoch);
+    return (int) difftime(localAsUtcEpoch, utcEpoch);
 }
 
 int GlobalTime::getOffsetForTimezone(const char *timezoneLocation, int fallbackOffset) {
