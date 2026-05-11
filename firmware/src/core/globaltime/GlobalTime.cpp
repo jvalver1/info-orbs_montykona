@@ -77,13 +77,7 @@ void GlobalTime::updateTime(bool force) {
                 m_weekday = i18n(t_weekdays, timeinfo.tm_wday); // tm_wday: 0=Sunday
                 m_time = String(m_hour) + ":" + (m_minute < 10 ? "0" + String(m_minute) : String(m_minute));
 
-                // Compute timezone offset by comparing local and UTC time
-                time_t localEpoch = mktime(&timeinfo);
-                struct tm utcinfo;
-                gmtime_r(&localEpoch, &utcinfo);
-                utcinfo.tm_isdst = 0; // Force no DST for UTC conversion
-                time_t utcEpoch = mktime(&utcinfo);
-                m_timeZoneOffset = (int) difftime(localEpoch, utcEpoch);
+                m_timeZoneOffset = calculateActiveTimezoneOffset(now);
                 if (!m_timeZoneFetched) {
                     DEBUG_PRINTF("GlobalTime: Local time via POSIX TZ: %04d-%02d-%02d %02d:%02d:%02d (UTC offset: %d sec, DST: %s)\n",
                                  m_year, m_month, m_day, m_hour24, m_minute, m_second,
