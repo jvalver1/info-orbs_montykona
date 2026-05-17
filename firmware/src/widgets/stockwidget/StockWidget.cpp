@@ -15,13 +15,15 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
 
     m_config.addConfigBool("StockWidget", "stocksEnabled", &m_enabled, t_enableWidget);
     m_config.addConfigString("StockWidget", "stockList", &m_stockList, 200, t_stockList);
-    char stockList[m_stockList.size() + 1];
+    // Use heap allocation instead of VLA to prevent stack overflow with long stock lists
+    char *stockList = new char[m_stockList.size() + 1];
     strcpy(stockList, m_stockList.c_str());
 
     m_config.addConfigComboBox("StockWidget", "stockchgFmt", &m_stockchangeformat, t_stockChangeFormats, t_stockChangeFormat, true);
     m_config.addConfigInt("StockWidget", "stockPaginate", &m_switchinterval, t_stockSwitchInterval, true);
 
-    char *symbol = strtok(stockList, ",");
+    char *savePtr = nullptr;
+    char *symbol = strtok_r(stockList, ",", &savePtr);
     m_stockCount = 0;
     while (symbol != nullptr) {
         if (m_stockCount >= MAX_STOCKS) {
@@ -32,8 +34,9 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
         stockModel.setSymbol(String(symbol));
         m_stocks[m_stockCount] = stockModel;
         m_stockCount++;
-        symbol = strtok(nullptr, ",");
+        symbol = strtok_r(nullptr, ",", &savePtr);
     }
+    delete[] stockList;
     m_pageCount = 1 + ((m_stockCount - 1) / NUM_SCREENS); // int division round up
     DEBUG_PRINTF("StockWidget initialized\n");
     DEBUG_PRINTF("StockWidget Pages: %d across %d symbools.\n", m_pageCount, m_stockCount);

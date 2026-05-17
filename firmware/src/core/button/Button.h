@@ -1,6 +1,7 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 #include <Arduino.h>
+#include <freertos/portmacro.h>
 
 enum ButtonState {
     BTN_NOTHING,
@@ -65,6 +66,7 @@ private:
     volatile bool m_hasChanged;
     volatile unsigned long m_lastPinLevelChange;
     volatile unsigned long m_pressedSince;
+    portMUX_TYPE m_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
     bool has_changed();
 };

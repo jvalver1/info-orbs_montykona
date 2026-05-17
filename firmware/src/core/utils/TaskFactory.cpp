@@ -61,7 +61,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
         delete responseData;
     }
 
-    TaskManager::activeRequests--;
+    TaskManager::activeRequests.fetch_sub(1);
     CrashTrace::mark("task:http:done", url);
 
 #ifdef TASKMANAGER_DEBUG

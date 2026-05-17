@@ -10,9 +10,11 @@
 TaskManager *TaskManager::instance = nullptr;
 QueueHandle_t TaskManager::requestQueue = nullptr;
 QueueHandle_t TaskManager::responseQueue = nullptr;
-volatile uint32_t TaskManager::activeRequests = 0;
-volatile uint32_t TaskManager::maxConcurrentRequests = 0;
-int TaskManager::taskParamsCount = 0;
+std::atomic<uint32_t> TaskManager::activeRequests{0};
+std::atomic<uint32_t> TaskManager::maxConcurrentRequests{0};
+std::atomic<int> TaskManager::taskParamsCount{0};
+SemaphoreHandle_t TaskManager::urlSetMutex = nullptr;
+std::set<String> TaskManager::activeUrls;
 
 TaskManager::TaskManager() {
     if (!requestQueue) {
@@ -20,6 +22,9 @@ TaskManager::TaskManager() {
     }
     if (!responseQueue) {
         responseQueue = xQueueCreate(RESPONSE_QUEUE_SIZE, RESPONSE_QUEUE_ITEM_SIZE);
+    }
+    if (!urlSetMutex) {
+        urlSetMutex = xSemaphoreCreateMutex();
     }
 }
 
@@ -30,26 +35,52 @@ TaskManager *TaskManager::getInstance() {
     return instance;
 }
 
+void TaskManager::addActiveUrl(const String &url) {
+    if (xSemaphoreTake(urlSetMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        activeUrls.insert(url);
+        xSemaphoreGive(urlSetMutex);
+    }
+}
+
+void TaskManager::removeActiveUrl(const String &url) {
+    if (xSemaphoreTake(urlSetMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        activeUrls.erase(url);
+        xSemaphoreGive(urlSetMutex);
+    }
+}
+
+bool TaskManager::isUrlActive(const String &url) {
+    bool found = false;
+    if (xSemaphoreTake(urlSetMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        found = activeUrls.count(url) > 0;
+        xSemaphoreGive(urlSetMutex);
+    }
+    return found;
+}
+
 bool TaskManager::addTask(std::unique_ptr<Task> task) {
-    if (isUrlInQueue(task->url)) {
+    if (isUrlActive(task->url)) {
         Log.errorln("Duplicate Task. Task already in the queue to waiting to be processed.");
         return false;
     }
 
     auto *params = new TaskParams{task->url, task->callback, task->preProcessResponse, task->taskExec};
-    taskParamsCount++; // Increment the count
+    taskParamsCount.fetch_add(1);
 #ifdef TASKMANAGER_DEBUG
-    Log.noticeln("TaskParams created: %d", taskParamsCount);
+    Log.noticeln("TaskParams created: %d", taskParamsCount.load());
 #endif
 
     if (xQueueSend(requestQueue, &params, 0) != pdPASS) {
         delete params;
-        taskParamsCount--;
+        taskParamsCount.fetch_sub(1);
 #ifdef TASKMANAGER_DEBUG
-        Log.noticeln("TaskParams deleted (queue full): %d", taskParamsCount);
+        Log.noticeln("TaskParams deleted (queue full): %d", taskParamsCount.load());
 #endif
         return false;
     }
+
+    // Track URL as active so duplicates are rejected
+    addActiveUrl(task->url);
 
     return true;
 }
@@ -65,21 +96,22 @@ void TaskManager::processAwaitingTasks() {
     }
 
     Utils::setBusy(true);
-    activeRequests++;
+    uint32_t current = activeRequests.fetch_add(1) + 1;
 
-    if (activeRequests > maxConcurrentRequests) {
-        maxConcurrentRequests = activeRequests;
+    uint32_t maxSeen = maxConcurrentRequests.load();
+    while (current > maxSeen && !maxConcurrentRequests.compare_exchange_weak(maxSeen, current)) {
+        // CAS loop to update max
     }
 #ifdef TASKMANAGER_DEBUG
-    Log.noticeln("✅ Obtained semaphore");
-    Log.noticeln("Active requests: %d (Max seen: %d)", activeRequests, maxConcurrentRequests);
+    Log.noticeln("\u2705 Obtained semaphore");
+    Log.noticeln("Active requests: %d (Max seen: %d)", activeRequests.load(), maxConcurrentRequests.load());
 #endif
 
     // Get next request
     TaskParams *taskParams = nullptr;
     if (xQueueReceive(requestQueue, &taskParams, 0) != pdPASS) {
-        DEBUG_PRINTF("⚠️ Queue empty after size check!\n");
-        activeRequests--;
+        DEBUG_PRINTF("\u26a0\ufe0f Queue empty after size check!\n");
+        activeRequests.fetch_sub(1);
         Utils::setBusy(false);
         xSemaphoreGive(taskSemaphore);
         return;
@@ -96,13 +128,16 @@ void TaskManager::processAwaitingTasks() {
     BaseType_t result = xTaskCreate(
         [](void *params) {
             auto *taskParams = static_cast<TaskParams *>(params);
+            String url = taskParams->url; // Copy URL before taskParams is deleted
             taskParams->taskExec();
             delete taskParams; // Ensure cleanup after execution
-            taskParamsCount--; // Decrement the count
-            // Log.traceln("TaskParams deleted: %d", taskParamsCount);
+            taskParamsCount.fetch_sub(1);
+
+            // Remove URL from active set now that task is complete
+            removeActiveUrl(url);
 
             Utils::setBusy(false);
-            DEBUG_PRINTF("✅ Release semaphore\n");
+            DEBUG_PRINTF("\u2705 Release semaphore\n");
             xSemaphoreGive(taskSemaphore);
             vTaskDelete(nullptr);
         },
@@ -114,9 +149,11 @@ void TaskManager::processAwaitingTasks() {
 
     if (result != pdPASS) {
         Log.errorln("Failed to create HTTP request task");
+        String url = taskParams->url;
         delete taskParams; // Ensure the object is deleted if task creation fails
-        taskParamsCount--; // Decrement the count if task creation fails
-        Log.errorln("TaskParams deleted (task creation failed): %d", taskParamsCount);
+        taskParamsCount.fetch_sub(1);
+        Log.errorln("TaskParams deleted (task creation failed): %d", taskParamsCount.load());
+        removeActiveUrl(url);
         Utils::setBusy(false);
         xSemaphoreGive(taskSemaphore);
     }
@@ -143,19 +180,4 @@ void TaskManager::processTaskResponses() {
         responseData->callback(responseData->httpCode, responseData->response);
         delete responseData; // Ensure the object is deleted after processing
     }
-}
-
-bool TaskManager::isUrlInQueue(const String &url) {
-    UBaseType_t queueLength = uxQueueMessagesWaiting(requestQueue);
-    for (UBaseType_t i = 0; i < queueLength; i++) {
-        TaskParams *taskParams;
-        if (xQueuePeek(requestQueue, &taskParams, 0) == pdPASS) {
-            if (taskParams->url == url) {
-                return true;
-            }
-            xQueueReceive(requestQueue, &taskParams, 0);
-            xQueueSend(requestQueue, &taskParams, 0);
-        }
-    }
-    return false;
 }

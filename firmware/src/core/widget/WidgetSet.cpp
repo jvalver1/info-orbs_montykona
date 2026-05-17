@@ -57,28 +57,36 @@ void WidgetSet::setClearScreensOnDrawCurrent() {
 }
 
 void WidgetSet::next() {
-    m_currentWidget++;
-    if (m_currentWidget >= m_widgetCount) {
-        m_currentWidget = 0;
+    // Iterative version to prevent stack overflow when all widgets are disabled
+    for (uint8_t attempts = 0; attempts < m_widgetCount; attempts++) {
+        m_currentWidget++;
+        if (m_currentWidget >= m_widgetCount) {
+            m_currentWidget = 0;
+        }
+        if (getCurrent()->isEnabled()) {
+            switchWidget();
+            return;
+        }
     }
-    if (!getCurrent()->isEnabled()) {
-        next();
-    } else {
-        switchWidget();
-    }
+    // All widgets disabled - stay on current widget to avoid infinite loop
+    Log.warningln("All widgets are disabled, cannot switch");
 }
 
 void WidgetSet::prev() {
-    if (m_currentWidget == 0) {
-        m_currentWidget = m_widgetCount - 1;
-    } else {
-        m_currentWidget--;
+    // Iterative version to prevent stack overflow when all widgets are disabled
+    for (uint8_t attempts = 0; attempts < m_widgetCount; attempts++) {
+        if (m_currentWidget == 0) {
+            m_currentWidget = m_widgetCount - 1;
+        } else {
+            m_currentWidget--;
+        }
+        if (getCurrent()->isEnabled()) {
+            switchWidget();
+            return;
+        }
     }
-    if (!getCurrent()->isEnabled()) {
-        prev();
-    } else {
-        switchWidget();
-    }
+    // All widgets disabled - stay on current widget to avoid infinite loop
+    Log.warningln("All widgets are disabled, cannot switch");
 }
 
 void WidgetSet::switchWidget() {

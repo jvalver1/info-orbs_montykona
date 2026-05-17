@@ -16,9 +16,11 @@ struct GrayscaleToTargetColorCache {
 GrayscaleToTargetColorCache grayscaleToTargetColorCache; // Global cache for grayscaleToTargetColor
 
 int Utils::getWrappedLines(String (&lines)[MAX_WRAPPED_LINES], String str, int limit) {
-    char buf[str.length() + 1];
-    char lineBuf[limit + 1];
-    str.toCharArray(buf, str.length() + 1);
+    // Use heap allocation instead of VLA to prevent stack overflow on large strings
+    size_t bufLen = str.length() + 1;
+    char *buf = new char[bufLen];
+    char *lineBuf = new char[limit + 1];
+    str.toCharArray(buf, bufLen);
 
     char *p = buf;
     char *eol;
@@ -46,6 +48,8 @@ int Utils::getWrappedLines(String (&lines)[MAX_WRAPPED_LINES], String str, int l
         lineCount++;
         p = eol + 1;
     }
+    delete[] buf;
+    delete[] lineBuf;
     return lineCount;
 }
 
@@ -53,11 +57,13 @@ String Utils::getWrappedLine(String str, int limit, int lineNum, int maxLines) {
     if (lineNum > maxLines) {
         return "";
     }
-    char buf[str.length() + 1];
-    char lineBuf[limit + 1];
-    str.toCharArray(buf, str.length() + 1);
+    // Use heap allocation instead of VLA to prevent stack overflow
+    size_t bufLen = str.length() + 1;
+    char *buf = new char[bufLen];
+    char *lineBuf = new char[limit + 1];
+    str.toCharArray(buf, bufLen);
 
-    String lines[maxLines];
+    String *lines = new String[maxLines];
 
     char *p = buf;
     char *eol;
@@ -84,7 +90,11 @@ String Utils::getWrappedLine(String str, int limit, int lineNum, int maxLines) {
         lines[i] = String(lineBuf);
         p = eol + 1;
     }
-    return lines[lineNum];
+    String result = lines[lineNum];
+    delete[] lines;
+    delete[] buf;
+    delete[] lineBuf;
+    return result;
 }
 
 int32_t Utils::stringToColor(String color) {

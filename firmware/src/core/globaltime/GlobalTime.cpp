@@ -7,8 +7,10 @@
 #include "config_helper.h"
 #include <ArduinoJson.h>
 #include <ArduinoLog.h>
+#include <freertos/semphr.h>
 
 GlobalTime *GlobalTime::m_instance = nullptr;
+static SemaphoreHandle_t s_tzMutex = nullptr;
 
 GlobalTime::GlobalTime() {
     ConfigManager *cm = ConfigManager::getInstance();
@@ -19,6 +21,12 @@ GlobalTime::GlobalTime() {
     m_format24hour = (clockFormat == CLOCK_FORMAT_24_HOUR);
     m_timeClient = new NTPClient(m_udp, m_ntpServer.c_str(), 0, m_updateInterval);
     m_timeClient->begin();
+
+    // Create TZ mutex for thread-safe timezone manipulations
+    // Use recursive mutex because getOffsetForTimezone calls calculateActiveTimezoneOffset
+    if (!s_tzMutex) {
+        s_tzMutex = xSemaphoreCreateRecursiveMutex();
+    }
 
     // Configure ESP32 system time with POSIX timezone for automatic DST
     const char *posixTz = getPosixTz(m_timezoneLocation.c_str());
@@ -211,6 +219,12 @@ bool GlobalTime::isTimeValid() {
 }
 
 int GlobalTime::calculateActiveTimezoneOffset(time_t utcEpoch) {
+    // Protect global TZ environment variable from concurrent access by background tasks
+    if (s_tzMutex && xSemaphoreTakeRecursive(s_tzMutex, pdMS_TO_TICKS(500)) != pdTRUE) {
+        Log.warningln("Failed to acquire TZ mutex in calculateActiveTimezoneOffset");
+        return 0;
+    }
+
     struct tm tmLocal;
     localtime_r(&utcEpoch, &tmLocal);
 
@@ -229,6 +243,10 @@ int GlobalTime::calculateActiveTimezoneOffset(time_t utcEpoch) {
     }
     tzset();
 
+    if (s_tzMutex) {
+        xSemaphoreGiveRecursive(s_tzMutex);
+    }
+
     return (int) difftime(localAsUtcEpoch, utcEpoch);
 }
 
@@ -240,6 +258,12 @@ int GlobalTime::getOffsetForTimezone(const char *timezoneLocation, int fallbackO
     const char *posixTz = getPosixTz(timezoneLocation);
     if (posixTz == nullptr) {
         DEBUG_PRINTF("GlobalTime: No POSIX TZ for '%s', keeping fallback offset %d\n", timezoneLocation, fallbackOffset);
+        return fallbackOffset;
+    }
+
+    // Protect global TZ environment variable from concurrent access by background tasks
+    if (s_tzMutex && xSemaphoreTakeRecursive(s_tzMutex, pdMS_TO_TICKS(500)) != pdTRUE) {
+        Log.warningln("Failed to acquire TZ mutex in getOffsetForTimezone");
         return fallbackOffset;
     }
 
@@ -256,6 +280,10 @@ int GlobalTime::getOffsetForTimezone(const char *timezoneLocation, int fallbackO
         unsetenv("TZ");
     }
     tzset();
+
+    if (s_tzMutex) {
+        xSemaphoreGiveRecursive(s_tzMutex);
+    }
 
     return offset;
 }

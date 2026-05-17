@@ -14,7 +14,9 @@ void Button::begin(uint8_t pin) {
 }
 
 void Button::isrButtonChange() {
+    portENTER_CRITICAL_ISR(&m_spinlock);
     if (millis() - m_lastPinLevelChange < DEBOUNCE_TIME) {
+        portEXIT_CRITICAL_ISR(&m_spinlock);
         return;
     }
 
@@ -41,13 +43,17 @@ void Button::isrButtonChange() {
         }
         m_hasChanged = true;
     }
+    portEXIT_CRITICAL_ISR(&m_spinlock);
 }
 
 bool Button::has_changed() {
+    portENTER_CRITICAL(&m_spinlock);
     if (m_hasChanged == true) {
         m_hasChanged = false;
+        portEXIT_CRITICAL(&m_spinlock);
         return true;
     }
+    portEXIT_CRITICAL(&m_spinlock);
     return false;
 }
 

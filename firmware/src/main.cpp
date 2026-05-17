@@ -131,6 +131,15 @@ void setup() {
 
 void loop() {
     MainHelper::watchdogReset();
+
+    // Safety guard: if setup failed to initialize critical pointers, avoid crashing
+    if (!wifiWidget || !widgetSet || !globalTime) {
+        Log.errorln("Critical subsystem not initialized, halting loop");
+        delay(5000);
+        ESP.restart();
+        return;
+    }
+
     if (wifiWidget->isConnected() == false) {
         wifiWidget->update();
         wifiWidget->draw();

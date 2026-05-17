@@ -165,7 +165,9 @@ void MainHelper::handleEndpointButton() {
 
 // Show button web page
 void MainHelper::handleEndpointButtons() {
-    String msg = WEBPORTAL_BUTTONS_PAGE_START1;
+    String msg;
+    msg.reserve(2048); // Pre-allocate to reduce heap fragmentation from repeated concatenation
+    msg = WEBPORTAL_BUTTONS_PAGE_START1;
     msg += WEBPORTAL_BUTTONS_STYLE;
     msg += WEBPORTAL_BUTTONS_PAGE_START2;
     String buttons[] = {"left", "middle", "right"};
@@ -186,7 +188,9 @@ void MainHelper::handleEndpointButtons() {
 }
 
 void MainHelper::handleEndpointListFiles() {
-    String html = WEBPORTAL_BROWSE_HTML_START;
+    String html;
+    html.reserve(4096); // Pre-allocate to reduce heap fragmentation from repeated concatenation
+    html = WEBPORTAL_BROWSE_HTML_START;
     html += WEBPORTAL_BROWSE_STYLE;
     html += WEBPORTAL_BROWSE_SCRIPT;
     html += WEBPORTAL_BROWSE_BODY_START;
@@ -305,6 +309,9 @@ void MainHelper::handleEndpointFetchFilesFromURL() {
 
     // Download files 0.jpg to 11.jpg
     for (int i = 0; i <= 11; i++) {
+        // Reset watchdog to prevent timeout during multi-file downloads
+        esp_task_wdt_reset();
+
         String fileName = String(i) + ".jpg";
         String filePath = currentDir + fileName;
         String fileUrl = url + "/" + fileName;
