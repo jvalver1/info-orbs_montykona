@@ -107,15 +107,7 @@ private:
     TFT_eSPI &m_tft;
     OpenFontRender m_render[6];
     bool m_fontLoaded[6] = {false};
-<<<<<<< HEAD
-    TTF_Font m_curFont     = TTF_Font::NONE; // font currently loaded in OpenFontRender
-=======
     TTF_Font m_curFont = TTF_Font::NONE; // font currently loaded in OpenFontRender
-=======
-    OpenFontRender m_render;
-    TTF_Font m_curFont = TTF_Font::NONE; // font currently loaded in OpenFontRender
->>>>>>> f8096c4dacc876b7dfd0c5c076ddd7ea65518284
->>>>>>> 3c5afc06506b8ffec0c7a8eace0bd5ebc335317e
     TTF_Font m_pendingFont = TTF_Font::NONE; // font requested by setFont() (survives failed loads)
     uint8_t m_brightness = TFT_BRIGHTNESS;
     uint32_t m_imageColor = 0;
