@@ -25,7 +25,7 @@ EyesWidget::EyesWidget(ScreenManager &manager, ConfigManager &config) : Widget(m
 
 void EyesWidget::setup() {
     // Initialize random seed
-    randomSeed(analogRead(0));
+    randomSeed(esp_random());
 
     // Set initial random delays
     m_nextPupilMoveDelay = randomInterval(m_pupilMoveMinInterval, m_pupilMoveMaxInterval);

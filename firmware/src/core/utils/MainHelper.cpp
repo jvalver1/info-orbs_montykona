@@ -46,6 +46,24 @@ void MainHelper::isrButtonChangeLeft() { buttonLeft.isrButtonChange(); }
 void MainHelper::isrButtonChangeMiddle() { buttonMiddle.isrButtonChange(); }
 void MainHelper::isrButtonChangeRight() { buttonRight.isrButtonChange(); }
 
+#include "GlobalResources.h"
+
+void buttonHandlerTask(void *pvParameters) {
+    while (true) {
+        // Wait for notification from the ISR
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        // A button interrupt occurred, let's process the state for all buttons
+        unsigned long currentMillis = millis();
+        buttonLeft.updateState(currentMillis);
+        buttonMiddle.updateState(currentMillis);
+        buttonRight.updateState(currentMillis);
+    }
+}
+
+static StaticTask_t buttonTaskBuffer;
+static StackType_t buttonTaskStack[2048];
+
 void MainHelper::setupButtons() {
     bool invertButtons = s_orbRotation == 1 || s_orbRotation == 2;
     int leftPin = BUTTON_LEFT_PIN;
@@ -60,6 +78,18 @@ void MainHelper::setupButtons() {
     buttonLeft.begin(leftPin);
     buttonMiddle.begin(middlePin);
     buttonRight.begin(rightPin);
+
+    // Create the deferred button handler task
+    buttonTaskHandle = xTaskCreateStaticPinnedToCore(
+        buttonHandlerTask,
+        "ButtonHandler",
+        2048,
+        nullptr,
+        15, // Very High priority
+        buttonTaskStack,
+        &buttonTaskBuffer,
+        1 // Pinned to Core 1
+    );
 
     attachInterrupt(digitalPinToInterrupt(leftPin), isrButtonChangeLeft, CHANGE);
     attachInterrupt(digitalPinToInterrupt(middlePin), isrButtonChangeMiddle, CHANGE);

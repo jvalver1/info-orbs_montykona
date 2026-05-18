@@ -29,6 +29,7 @@ public:
     bool pressedVeryLong();
     ButtonState getState();
     void isrButtonChange();
+    void updateState(unsigned long currentTime);
 
 #if BUTTON_MODE == INPUT_PULLDOWN
     const static bool PRESSED_LEVEL = HIGH;

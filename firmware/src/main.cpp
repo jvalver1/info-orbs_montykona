@@ -75,6 +75,15 @@ void setup() {
         Serial.read();
     }
 
+    // Suppress WiFi internal logs to prevent the WiFi timer ISR from crashing.
+    // The WiFi stack logs internally via wifi_log() which flushes stdio; when this
+    // happens inside the ieee80211 timer callback it calls lock_init_generic from
+    // an interrupt context, which calls abort(). Silencing these logs prevents the
+    // entire crash chain. Also suppresses the ADC2/WiFi conflict error spam.
+    esp_log_level_set("wifi", ESP_LOG_NONE);
+    esp_log_level_set("phy_init", ESP_LOG_NONE);
+    esp_log_level_set("esp32-hal-adc", ESP_LOG_NONE);
+
 #ifdef LOG_TIMESTAMP
     Log.setPrefix(MainHelper::printPrefix);
 #endif
@@ -129,6 +138,21 @@ void setup() {
     MainHelper::resetCycleTimer();
 }
 
+static StaticTask_t networkTaskBuffer;
+static StackType_t networkTaskStack[8192];
+static TaskHandle_t networkTaskHandle = nullptr;
+
+void networkTask(void *pvParameters) {
+    while (true) {
+        if (wifiManager) {
+            wifiManager->process();
+        }
+        TaskManager::getInstance()->processAwaitingTasks();
+        TaskManager::getInstance()->processTaskResponses();
+        vTaskDelay(pdMS_TO_TICKS(10)); // Yield to other Core 0 tasks
+    }
+}
+
 void loop() {
     MainHelper::watchdogReset();
 
@@ -150,6 +174,20 @@ void loop() {
             CrashTrace::mark("loop:initial-update");
             widgetSet->initializeAllWidgetsData();
             MainHelper::setupWebPortalEndpoints();
+
+            // Start Network Task on Core 0 only after initial setup
+            if (networkTaskHandle == nullptr) {
+                networkTaskHandle = xTaskCreateStaticPinnedToCore(
+                    networkTask,
+                    "NetworkTask",
+                    8192,
+                    nullptr,
+                    1,
+                    networkTaskStack,
+                    &networkTaskBuffer,
+                    0 // Pinned to Core 0
+                );
+            }
         }
         CrashTrace::mark("loop:time");
         globalTime->updateTime();
@@ -165,11 +203,6 @@ void loop() {
 
         CrashTrace::mark("loop:cycle");
         MainHelper::checkCycleWidgets();
-        wifiManager->process();
-        CrashTrace::mark("loop:tasks-awaiting");
-        TaskManager::getInstance()->processAwaitingTasks();
-        CrashTrace::mark("loop:task-responses");
-        TaskManager::getInstance()->processTaskResponses();
     }
 #ifdef MEMORY_DEBUG_INTERVAL
     ShowMemoryUsage::printSerial();

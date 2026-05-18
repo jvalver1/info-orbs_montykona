@@ -1,5 +1,6 @@
 #include "Button.h"
 #include "config_helper.h"
+#include "GlobalResources.h"
 
 /**
  * After calling begin() make sure to attach an interrupt handler in main.cpp that will call isrButtonChange()
@@ -14,36 +15,44 @@ void Button::begin(uint8_t pin) {
 }
 
 void Button::isrButtonChange() {
-    portENTER_CRITICAL_ISR(&m_spinlock);
-    if (millis() - m_lastPinLevelChange < DEBOUNCE_TIME) {
-        portEXIT_CRITICAL_ISR(&m_spinlock);
+    if (buttonTaskHandle != nullptr) {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        vTaskNotifyGiveFromISR(buttonTaskHandle, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+}
+
+void Button::updateState(unsigned long currentTime) {
+    portENTER_CRITICAL(&m_spinlock);
+    if (currentTime - m_lastPinLevelChange < DEBOUNCE_TIME) {
+        portEXIT_CRITICAL(&m_spinlock);
         return;
     }
 
     bool newPinLevel = digitalRead(m_pin);
     if (newPinLevel != m_pinLevel) {
         m_pinLevel = newPinLevel;
-        m_lastPinLevelChange = millis();
+        m_lastPinLevelChange = currentTime;
         if (m_pinLevel == RELEASED_LEVEL) {
             // Button was now released
             // We now check if this was a short, medium or long press
-            if (millis() - m_pressedSince >= VERY_LONG_PRESS_TIME) { // Added very long check
+            if (currentTime - m_pressedSince >= VERY_LONG_PRESS_TIME) {
                 m_state = BTN_VERY_LONG;
-            } else if (millis() - m_pressedSince >= LONG_PRESS_TIME) {
+            } else if (currentTime - m_pressedSince >= LONG_PRESS_TIME) {
                 m_state = BTN_LONG;
-            } else if (millis() - m_pressedSince >= MEDIUM_PRESS_TIME) {
+            } else if (currentTime - m_pressedSince >= MEDIUM_PRESS_TIME) {
                 m_state = BTN_MEDIUM;
             } else {
                 m_state = BTN_SHORT;
             }
         } else {
             // Start button press
-            m_pressedSince = millis();
+            m_pressedSince = currentTime;
             m_state = BTN_NOTHING;
         }
         m_hasChanged = true;
     }
-    portEXIT_CRITICAL_ISR(&m_spinlock);
+    portEXIT_CRITICAL(&m_spinlock);
 }
 
 bool Button::has_changed() {

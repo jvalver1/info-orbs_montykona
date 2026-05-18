@@ -106,7 +106,8 @@ private:
     uint8_t m_screen_cs[5] = {SCREEN_1_CS, SCREEN_2_CS, SCREEN_3_CS, SCREEN_4_CS, SCREEN_5_CS};
     TFT_eSPI &m_tft;
     OpenFontRender m_render;
-    TTF_Font m_curFont = TTF_Font::NONE;
+    TTF_Font m_curFont     = TTF_Font::NONE; // font currently loaded in OpenFontRender
+    TTF_Font m_pendingFont = TTF_Font::NONE; // font requested by setFont() (survives failed loads)
     uint8_t m_brightness = TFT_BRIGHTNESS;
     uint32_t m_imageColor = 0;
     uint16_t m_transparentColor = 0xFFFF; // 0xFFFF means no transparency
@@ -114,6 +115,7 @@ private:
     TFT_eSPI &getDisplay();
     OpenFontRender &getRender();
     unsigned int getScaledFontSize(unsigned int fontSize);
+    bool tryLoadFont(TTF_Font font); // Clean single-attempt font loader
     uint16_t dim(uint16_t color);
 };
 

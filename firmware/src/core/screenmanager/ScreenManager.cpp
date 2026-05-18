@@ -49,45 +49,57 @@ ScreenManager::ScreenManager(TFT_eSPI &tft) : m_tft(tft) {
     instance = this;
 }
 
-void ScreenManager::setFont(TTF_Font font) {
-    if (font == m_curFont) {
-        // nothing to do
-        return;
-    }
-    m_render.unloadFont();
-    // Font is now unloaded
-    m_curFont = TTF_Font::NONE;
-    if (font == TTF_Font::NONE) {
-        // just unload
-        return;
-    }
-    // 0 is success
+// Helper: attempt to load the given font into m_render (one try, clean state).
+// Returns true on success. Always calls unloadFont() first so there is no
+// partial FreeType state from a previous failed attempt.
+bool ScreenManager::tryLoadFont(TTF_Font font) {
+    m_render.unloadFont(); // Ensure a clean slate before every attempt
     FT_Error error = 1;
     switch (font) {
     case ROBOTO_REGULAR:
         error = m_render.loadFont(robotoRegular_start, robotoRegular_end - robotoRegular_start);
         break;
-
     case FINAL_FRONTIER:
         error = m_render.loadFont(finalFrontier_start, finalFrontier_end - finalFrontier_start);
         break;
-
     case DSEG7:
         error = m_render.loadFont(dseg7_start, dseg7_end - dseg7_start);
         break;
-
     case DSEG14:
         error = m_render.loadFont(dseg14_start, dseg14_end - dseg14_start);
         break;
-
     case ORBITRON_BOLD:
         error = m_render.loadFont(orbitronBold_start, orbitronBold_end - orbitronBold_start);
+        break;
+    default:
         break;
     }
     if (error == 0) {
         m_curFont = font;
-    } else {
-        Log.errorln("Unable to load TTF font %d", font);
+        return true;
+    }
+    m_curFont = TTF_Font::NONE;
+    return false;
+}
+
+void ScreenManager::setFont(TTF_Font font) {
+    // Always record intent, so drawString() can retry even if load fails now.
+    m_pendingFont = font;
+
+    if (font == m_curFont) {
+        return; // Already loaded, nothing to do
+    }
+
+    if (font == TTF_Font::NONE) {
+        m_render.unloadFont();
+        m_curFont = TTF_Font::NONE;
+        return;
+    }
+
+    // Single clean attempt. If it fails, m_curFont stays NONE. drawString() will
+    // retry on every subsequent frame until heap pressure subsides.
+    if (!tryLoadFont(font)) {
+        Log.warningln("setFont %d failed – will retry in drawString()", font);
     }
 }
 
@@ -187,8 +199,10 @@ void ScreenManager::reset() {
 }
 
 unsigned int ScreenManager::calculateFitFontSize(uint32_t limit_width, uint32_t limit_height, Layout layout, const String &text) {
+    if (m_curFont == TTF_Font::NONE) {
+        return 0; // No font loaded, return 0 so callers can detect and skip
+    }
     unsigned int calcFontSize = m_render.calculateFitFontSize(limit_width, limit_height, layout, text.c_str());
-    // Log.traceln("calcFitFontSize: t=%s, w=%d, h=%d -> fs=%d", str, limit_width, limit_height, calcFontSize);
     return calcFontSize;
 }
 
@@ -199,27 +213,36 @@ void ScreenManager::drawString(const String &text, int x, int y) {
 
 void ScreenManager::drawString(const String &text, int x, int y, unsigned int fontSize, Align align, int32_t fgColor, int32_t bgColor, bool applyScale) {
 
+    // If the font failed to load (heap pressure during fast switching), try once
+    // more now that we're in a new call frame. This self-heals in subsequent
+    // draw cycles without any external intervention.
+    if (m_curFont == TTF_Font::NONE) {
+        if (m_pendingFont == TTF_Font::NONE) {
+            return; // Caller explicitly set NONE, nothing to draw
+        }
+        if (!tryLoadFont(m_pendingFont)) {
+            return; // Still can't load — skip this frame, try again next draw
+        }
+        // Load succeeded — fall through and render normally
+    }
+
     if (fontSize == 0) {
-        // Keep current font size
         fontSize = m_render.getFontSize();
     } else if (applyScale) {
         fontSize = getScaledFontSize(fontSize);
     }
     if (fgColor == -1) {
-        // Keep current FG color
         fgColor = m_render.getFontColor();
     } else {
         fgColor = dim(fgColor);
     }
     if (bgColor == -1) {
-        // Keep current BG color
         bgColor = m_render.getBackgroundColor();
     } else {
         bgColor = dim(bgColor);
     }
 
-    // Dirty hack to correct misaligned Y
-    // See https://github.com/takkaO/OpenFontRender/issues/38
+    // Correct misaligned Y — see https://github.com/takkaO/OpenFontRender/issues/38
     FT_BBox box = m_render.calculateBoundingBox(0, 0, fontSize, Align::TopLeft, Layout::Horizontal, text.c_str());
     m_render.setAlignment(align);
     m_render.setFontSize(fontSize);

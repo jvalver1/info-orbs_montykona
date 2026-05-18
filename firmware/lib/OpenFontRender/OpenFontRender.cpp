@@ -509,13 +509,14 @@ uint16_t OpenFontRender::drawHString(const char *str,
 
 	// decode UTF8
 	uint16_t unicode = '\0';
-	std::queue<FT_UInt32> unicode_q;
+	std::vector<FT_UInt32> unicode_q;
 	{
 		uint16_t len = (uint16_t)strlen(str);
+        unicode_q.reserve(len);
 		uint16_t n   = 0;
 		while (n < len) {
 			unicode = decodeUTF8((uint8_t *)str, &n, len - n);
-			unicode_q.push(unicode);
+			unicode_q.push_back(unicode);
 		}
 	}
 
@@ -539,10 +540,12 @@ uint16_t OpenFontRender::drawHString(const char *str,
 	}
 
 	// Rendering loop
-	while (unicode_q.size() != 0) {
+    size_t unicode_q_idx = 0;
+	while (unicode_q_idx < unicode_q.size()) {
 		FT_Vector offset       = {0, 0};
 		FT_Vector bearing_left = {0, 0};
-		std::queue<FT_UInt32> rendering_unicode_q;
+		std::vector<FT_UInt32> rendering_unicode_q;
+        rendering_unicode_q.reserve(unicode_q.size() - unicode_q_idx);
 		FT_BBox bbox;
 		bbox.xMin = bbox.yMin = LONG_MAX;
 		bbox.xMax = bbox.yMax = LONG_MIN;
@@ -553,12 +556,12 @@ uint16_t OpenFontRender::drawHString(const char *str,
 		bool isLineFirstChar  = true;
 
 		// Glyph extraction
-		while (unicode_q.size() != 0 && detect_control_char == false) {
+		while (unicode_q_idx < unicode_q.size() && detect_control_char == false) {
 			FT_Glyph aglyph;
 			FT_UInt glyph_index;
 			FT_BBox glyph_bbox;
 
-			unicode = unicode_q.front();
+			unicode = unicode_q[unicode_q_idx];
 			switch (unicode) {
 			case '\r':
 				[[fallthrough]]; // Fall Through
@@ -600,9 +603,9 @@ uint16_t OpenFontRender::drawHString(const char *str,
 				bbox.yMax = std::max(bbox.yMax, glyph_bbox.yMax);
 
 				x += (aglyph->advance.x >> 16);
-				rendering_unicode_q.push(unicode);
+				rendering_unicode_q.push_back(unicode);
 			}
-			unicode_q.pop();
+			unicode_q_idx++;
 		}
 
 		// Serial.printf("bbox1: x=%f %f, y=%f %f\n", bbox.xMin, bbox.xMax, bbox.yMin, bbox.yMax);
@@ -717,8 +720,9 @@ uint16_t OpenFontRender::drawHString(const char *str,
 			_saved_state.drawn_bg_point.x = (x - offset.x);
 			uint16_t rendering_unicode;
 
-			while (rendering_unicode_q.size() != 0) {
-				rendering_unicode = rendering_unicode_q.front();
+            size_t rendering_unicode_q_idx = 0;
+			while (rendering_unicode_q_idx < rendering_unicode_q.size()) {
+				rendering_unicode = rendering_unicode_q[rendering_unicode_q_idx];
 
 				FT_UInt glyph_index = FTC_CMapCache_Lookup(_ftc_cmap_cache,
 				                                           &_face_id,
@@ -783,7 +787,7 @@ uint16_t OpenFontRender::drawHString(const char *str,
 				}
 				x += (aglyph->advance.x >> 16);
 
-				rendering_unicode_q.pop();
+				rendering_unicode_q_idx++;
 			}
 		}
 

@@ -215,6 +215,6 @@ void NTPClient::sendNTPPacket() {
 }
 
 void NTPClient::setRandomPort(unsigned int minValue, unsigned int maxValue) {
-  randomSeed(analogRead(0));
+  randomSeed(esp_random());
   this->_port = random(minValue, maxValue);
 }

@@ -15,6 +15,7 @@ std::atomic<uint32_t> TaskManager::maxConcurrentRequests{0};
 std::atomic<int> TaskManager::taskParamsCount{0};
 SemaphoreHandle_t TaskManager::urlSetMutex = nullptr;
 std::set<String> TaskManager::activeUrls;
+static SemaphoreHandle_t taskLimitSemaphore = nullptr;
 
 TaskManager::TaskManager() {
     if (!requestQueue) {
@@ -25,6 +26,10 @@ TaskManager::TaskManager() {
     }
     if (!urlSetMutex) {
         urlSetMutex = xSemaphoreCreateMutex();
+    }
+    if (!taskLimitSemaphore) {
+        taskLimitSemaphore = xSemaphoreCreateBinary();
+        xSemaphoreGive(taskLimitSemaphore);
     }
 }
 
@@ -91,7 +96,7 @@ void TaskManager::processAwaitingTasks() {
         return; // No requests in queue
     }
 
-    if (xSemaphoreTake(taskSemaphore, 0) != pdTRUE) {
+    if (xSemaphoreTake(taskLimitSemaphore, 0) != pdTRUE) {
         return;
     }
 
@@ -113,7 +118,7 @@ void TaskManager::processAwaitingTasks() {
         DEBUG_PRINTF("\u26a0\ufe0f Queue empty after size check!\n");
         activeRequests.fetch_sub(1);
         Utils::setBusy(false);
-        xSemaphoreGive(taskSemaphore);
+        xSemaphoreGive(taskLimitSemaphore);
         return;
     }
 
@@ -138,7 +143,7 @@ void TaskManager::processAwaitingTasks() {
 
             Utils::setBusy(false);
             DEBUG_PRINTF("\u2705 Release semaphore\n");
-            xSemaphoreGive(taskSemaphore);
+            xSemaphoreGive(taskLimitSemaphore);
             vTaskDelete(nullptr);
         },
         "TASK_EXEC",
@@ -155,7 +160,7 @@ void TaskManager::processAwaitingTasks() {
         Log.errorln("TaskParams deleted (task creation failed): %d", taskParamsCount.load());
         removeActiveUrl(url);
         Utils::setBusy(false);
-        xSemaphoreGive(taskSemaphore);
+        xSemaphoreGive(taskLimitSemaphore);
     }
 }
 
