@@ -250,10 +250,10 @@ This section documents significant engineering changes made to the firmware to r
 
 **Solution:** The workload is now split across both ESP32 cores:
 
-| Core | Responsibilities |
-|------|-----------------|
+| Core       | Responsibilities                                                                    |
+|------------|-------------------------------------------------------------------------------------|
 | **Core 0** | `NetworkTask` — WiFiManager processing, HTTP task execution, task response handling |
-| **Core 1** | `loop()` — Button polling, widget update/draw, time sync |
+| **Core 1** | `loop()` — Button polling, widget update/draw, time sync                            |
 
 The `NetworkTask` is created with `xTaskCreateStaticPinnedToCore()` using a **statically allocated** stack and task buffer. This avoids heap fragmentation during startup and guarantees the task can always be created regardless of runtime heap state.
 
@@ -313,10 +313,10 @@ This cuts the logging path entirely, preventing the ISR from ever reaching `lock
 
 **Solution:** All `analogRead(0)` calls were replaced with `esp_random()`, which reads from the ESP32's hardware random number generator — a true entropy source that is available regardless of WiFi state:
 
-| File | Before | After |
-|------|--------|-------|
+| File             | Before                      | After                      |
+|------------------|-----------------------------|----------------------------|
 | `EyesWidget.cpp` | `randomSeed(analogRead(0))` | `randomSeed(esp_random())` |
-| `NTPClient.cpp` | `randomSeed(analogRead(0))` | `randomSeed(esp_random())` |
+| `NTPClient.cpp`  | `randomSeed(analogRead(0))` | `randomSeed(esp_random())` |
 
 ### TrueType Font Loading Resilience
 
@@ -374,4 +374,4 @@ Index-based iteration replaces the `front()` / `pop()` pattern, so no element is
 - **Discord**: Join us for setup help and contribution discussions [here](https://link.brett.tech/discord).
 - **YouTube**: Watch the assembly and flashing guide [here](https://link.brett.tech/orbsYT).
 
-_Created with ❤️ by the Info Orbs Community._
+*Created with ❤️ by the Info Orbs Community.*
