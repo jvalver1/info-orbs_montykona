@@ -17,6 +17,10 @@ constexpr Translation t_5zoneTZDesc = {
     "Time Zone Info", // EN
 };
 
+constexpr Translation t_5zoneFlagDesc = {
+    "Country Flag Code", // EN
+};
+
 constexpr Translation t_5zoneWorkStartDesc = {
     "Zone Work Start time", // EN
 };

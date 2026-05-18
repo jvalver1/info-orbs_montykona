@@ -35,6 +35,10 @@ FiveZoneWidget::FiveZoneWidget(ScreenManager &manager, ConfigManager &config) : 
         const char *zoneTZDesc = strdup((i18nStr(t_5zoneTZDesc) + " " + String(i) + ": ").c_str());
         m_config.addConfigString("FiveZoneWidget", zoneTZ, &m_timeZones[i].tzInfo, 50, zoneTZDesc, false);
 
+        const char *zoneFlag = strdup((String("5zoZoneFlag") + String(i)).c_str());
+        const char *zoneFlagDesc = strdup((i18nStr(t_5zoneFlagDesc) + " " + String(i) + ": ").c_str());
+        m_config.addConfigString("FiveZoneWidget", zoneFlag, &m_timeZones[i].flag, 5, zoneFlagDesc, false);
+
         // Validate loaded timezone identifier - if it's a short abbreviation (4 chars or less),
         // it's likely old config using GMT, CET, etc. Replace with IANA identifier from config.h
         if (m_timeZones[i].tzInfo.length() <= 4 && strlen(defaultTZ[i]) > 4) {
@@ -103,7 +107,7 @@ void FiveZoneWidget::update(bool force) {
     if (m_time == nullptr) {
         m_time = GlobalTime::getInstance();
     }
-    m_time->updateTime(true);
+    m_time->updateTime(force);
     if (!m_time->isTimeValid()) {
         return;
     }

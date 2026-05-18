@@ -77,6 +77,8 @@ void ClockWidget::setup() {
     m_lastDisplay2Digit = "";
     m_lastDisplay4Digit = "";
     m_lastDisplay5Digit = "";
+    m_lastAmPm = "";
+    m_lastSecondSingle = -1;
 }
 
 void ClockWidget::draw(bool force) {
@@ -116,12 +118,14 @@ void ClockWidget::draw(bool force) {
         m_lastSecondSingle = m_secondSingle;
         if (m_type == (int) ClockType::NORMAL) {
             if (m_format == CLOCK_FORMAT_12_HOUR_AMPM) {
-                if (m_amPm != m_lastAmPm) {
-                    // Clear old AM/PM
-                    displayAmPm(m_lastAmPm, TFT_BLACK);
+                if (m_amPm != m_lastAmPm || force) {
+                    if (m_lastAmPm != "" && !force) {
+                        // Clear old AM/PM
+                        displayAmPm(m_lastAmPm, TFT_BLACK);
+                    }
                     m_lastAmPm = m_amPm;
+                    displayAmPm(m_amPm, m_fgColor);
                 }
-                displayAmPm(m_amPm, m_fgColor);
             }
         }
     }

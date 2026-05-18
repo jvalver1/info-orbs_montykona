@@ -11,6 +11,7 @@
 - **Web-Based Management**: Full device control and configuration via a browser-based portal.
 - **High Performance**: Optimized rendering using the `TFT_eSPI` library and LittleFS asset management.
 - **Customization**: Support for custom fonts (TTF), icons, and image-based clock faces.
+- **Dual-Core Stability**: Background networking pinned to Core 0 to keep the UI on Core 1 fully responsive and crash-free.
 
 ---
 
@@ -23,11 +24,11 @@ Each widget can be toggled and configured through the web interface or `config.h
 The core of the system, offering multiple visual styles.
 
 - **Modes**:
-  - **Normal**: Classic digital clock using TTF fonts (DSEG7, Roboto, etc.).
+  - **Normal**: Classic digital clock using TrueType fonts (DSEG7, Roboto, etc.).
   - **Nixie**: Specialized graphics mimicking vintage Nixie tubes.
-  - **Custom (0-9)**: User-provided images (0.jpg to 11.jpg) stored in LittleFS.
+  - **Custom (0–9)**: User-provided images (`0.jpg` to `11.jpg`) stored in LittleFS.
 - **Interaction**:
-  - **Short Press (Middle)**: Cycle through valid clock types (Normal -> Nixie -> Custom).
+  - **Short Press (Middle)**: Cycle through valid clock types (Normal → Nixie → Custom).
   - **Medium Press (Middle)**: Toggle between 12-hour (AM/PM) and 24-hour formats.
 - **Settings**: Customizable colors, shadows, personal Nixie colors, and second-tick indicators.
 
@@ -52,18 +53,65 @@ Track your favorite assets in real-time.
   - **Short Press (Middle)**: Force update prices.
 - **Settings**: Customizable list of up to 5 tickers and choice between price or percentage change display.
 
+### 📊 Parqet Portfolio Widget
+
+Display your investment portfolio performance fetched from a self-hosted Parqet proxy.
+
+- **Supports**: Multiple timeframes, performance measures, and chart types.
+- **Settings**: Portfolio UID, proxy URL, and default view configuration.
+
 ### 🌍 5-Zone Clock
 
-A global perspective on time.
+A global perspective on time across all five screens simultaneously.
 
-- **Display**: Shows 5 different timezones across the screens with city names and flags.
-- **Settings**: Configure city name, timezone identifier (e.g., `Europe/London`), UTC offset, and country flag (emoji or code).
+- **Display**: Shows 5 different timezones simultaneously with city names, country flags, local time, and GMT offset relative to your local timezone.
+- **Business Hours**: Optional colour-coded ring around each screen — green when the city is within working hours, red when outside, with weekend detection.
+- **DST-Aware**: Uses POSIX timezone identifiers (e.g. `Europe/London`) and automatically tracks Daylight Saving Time transitions without any external API.
+- **Interaction**:
+  - **Medium Press (Middle)**: Toggle between 12-hour and 24-hour display.
+- **Settings**: City name, IANA timezone string, UTC offset, country flag code (e.g. `GB`, `US`), and business-hours start/end.
+
+### 💬 MQTT Widget
+
+Display arbitrary data pushed from your home automation system.
+
+- **Protocol**: Standard MQTT over TCP.
+- **Configuration**: Set broker host, port, username, password, and the setup topic that delivers the initial JSON layout for all five screens.
+- **Use Cases**: Home assistant dashboards, sensor readings, alert displays.
+
+### 🌐 Web Data Widget
+
+Pull any JSON endpoint and render its fields directly on the displays.
+
+- **Format**: Expects a JSON response with a `displays` array (one entry per screen), each describing text, colour, and icon.
+- **Polling**: Configurable interval; can also be set dynamically by the server via an `interval` field in the response.
+- **Use Cases**: Custom metrics, home dashboards, cryptocurrency tickers from a self-hosted proxy.
+
+### 🌱 Matrix Screensaver
+
+A digital rain screensaver inspired by *The Matrix* that activates across all five round screens.
+
+- **Effect**: Multiple independent columns of falling katakana/ASCII characters cascade downward across all five displays simultaneously. Each column has a brighter "head" character that leads the trail.
+- **Display**: All five screens are used together as a wide canvas.
+- **Settings** (all configurable via the web portal):
+  - **Font Size**: Toggle between small and large character size.
+  - **Text Color**: Base colour of the falling trail (RGB).
+  - **Head Character Color**: Colour of the leading bright character at the top of each column.
+  - **Min/Max Lines**: Control the density of active columns on screen.
+  - **Min/Max Speed**: Control how fast the columns fall.
+  - **Update Interval**: How frequently the animation advances (milliseconds).
+- **No interaction**: The widget runs autonomously; use the navigation buttons to cycle away from it.
 
 ### 👁️ Eyes Widget
 
-Add some personality to your desk with animated eyes that look around.
+Add some personality to your desk with a pair of animated photorealistic eyes.
 
-- **Toggle**: Can be enabled as an active widget in the rotation.
+- **Animation**:
+  - **Pupil Movement**: Eyes randomly glance left, centre, or right at configurable intervals.
+  - **Blinking**: Smooth eyelid-slide animation; long blinks occur at random intervals with configurable duration.
+- **Layout**: Left eye on Screen 1, right eye on Screen 3. An optional nose graphic is drawn on Screen 2.
+- **Assets**: Rendered from embedded JPG images (eye white, iris, eyelid, nose) for a photorealistic look.
+- **Settings**: Sclera color, iris color, pupil color, eyelid color; show/hide nose; blink interval range; eye movement interval; long-close duration.
 
 ---
 
@@ -95,9 +143,9 @@ The configuration portal allows you to fine-tune every aspect of your Info Orbs.
 
 - **Orb Rotation**: Rotate the screen orientation (0°, 90°, 180°, 270°).
 - **Night Mode**: Enable automatic dimming during specific hours.
-- **[ADV] TFT Brightness**: Global brightness level (0-255).
+- **[ADV] TFT Brightness**: Global brightness level (0–255).
 - **[ADV] Night Mode Start/End**: Define the window for reduced brightness.
-- **[ADV] Night Mode Brightness**: Lower brightness level for night hours (0-255).
+- **[ADV] Night Mode Brightness**: Lower brightness level for night hours (0–255).
 - **[ADV] Debug Output**: Enable detailed logging to the Serial monitor.
 
 #### 🕰️ Clock Widget
@@ -130,7 +178,7 @@ The configuration portal allows you to fine-tune every aspect of your Info Orbs.
 #### 🧩 Widget Specifics
 
 - **Eyes**: Customize Sclera, Iris, Pupil, and Eyelid colors; adjust blink and movement frequency.
-- **Matrix**: Toggle font size, colors, and falling speed.
+- **Matrix**: Toggle font size, colors, and falling speed (min/max lines, min/max speed, update interval).
 - **Global Time**: Configure up to 5 custom timezones with city names and country flags (referenced by 2-letter ISO code like `US`, `GB`, `ES`).
 - **MQTT**:
   - **Connection**: Set your Broker Host, Port, User, and Password.
@@ -189,6 +237,135 @@ Detailed instructions can be found in the [Firmware Install Guide](references/Fi
 1. **Preparation**: Copy `firmware/config/config.h.template` to `config.h`.
 2. **Environment**: Use **PlatformIO** in VS Code.
 3. **Deploy**: Run the `Upload` task. Assets in the `data` directory are handled by automated scripts.
+
+---
+
+## ⚙️ Architecture & Stability Improvements
+
+This section documents significant engineering changes made to the firmware to resolve system crashes and improve long-term stability. These changes are relevant for contributors and advanced users who want to understand the internals.
+
+### Dual-Core Task Architecture
+
+**Problem:** The original firmware ran all processing — WiFi management, HTTP requests, widget rendering, and button handling — on a single core in a monolithic loop. This caused the watchdog timer to trip during slow network operations and made the UI unresponsive during data fetches.
+
+**Solution:** The workload is now split across both ESP32 cores:
+
+| Core | Responsibilities |
+|------|-----------------|
+| **Core 0** | `NetworkTask` — WiFiManager processing, HTTP task execution, task response handling |
+| **Core 1** | `loop()` — Button polling, widget update/draw, time sync |
+
+The `NetworkTask` is created with `xTaskCreateStaticPinnedToCore()` using a **statically allocated** stack and task buffer. This avoids heap fragmentation during startup and guarantees the task can always be created regardless of runtime heap state.
+
+```
+setup() completes on Core 1
+  └─ WiFi connects
+  └─ Widgets initialized
+  └─ NetworkTask spawned on Core 0
+       └─ wifiManager->process()
+       └─ TaskManager::processAwaitingTasks()
+       └─ TaskManager::processTaskResponses()
+```
+
+### Button Interrupt Decoupling
+
+**Problem:** Button debouncing was performed directly inside the GPIO interrupt service routine (ISR). Calling `millis()` and executing debounce logic inside an ISR is illegal in FreeRTOS — it can deadlock or produce corrupted timer state.
+
+**Solution:** ISRs now do one thing only: call `vTaskNotifyGiveFromISR()` to wake a dedicated `buttonHandlerTask`. All debounce logic runs in that task's context on Core 1, safely outside the ISR.
+
+```
+GPIO IRQ fires (ISR)
+  └─ vTaskNotifyGiveFromISR() → wakes buttonHandlerTask
+       └─ button.updateState(millis())   ← debounce here, safely
+       └─ widgetSet->buttonPressed()
+```
+
+### Task Manager Semaphore Fix
+
+**Problem:** The global `taskSemaphore` was taken by one FreeRTOS task and released by a different task. FreeRTOS binary semaphores with ownership violations cause an assertion failure: `xQueueGenericSend queue.c:832`.
+
+**Solution:** The shared semaphore was replaced with a local `taskLimitSemaphore` scoped entirely within `TaskManager`. The semaphore is always taken and given by the same task, eliminating the ownership violation.
+
+### WiFi Logging ISR Crash
+
+**Problem:** The ESP32 WiFi stack logs internal events via `wifi_log()`, which is routed through the `esp-insights` diagnostics wrapper (`__wrap_esp_log_write`). When the WiFi timer ISR fires, it calls `wifi_log()`, which tries to flush `stdio` and acquire the UART mutex. Because `lock_init_generic` cannot initialize a FreeRTOS mutex from within an interrupt context, it calls `abort()`.
+
+The exact crash chain decoded from the backtrace:
+```
+timer_process_alarm → ieee80211_timer_process → wifi_log
+  → __wrap_esp_log_write → vprintf → _fflush_r → uart_write
+  → _lock_acquire_recursive → lock_init_generic → abort()
+```
+
+**Solution:** WiFi and related component logs are suppressed at the ESP-IDF level immediately after `Serial.begin()`, before WiFi is initialized:
+
+```cpp
+esp_log_level_set("wifi",         ESP_LOG_NONE);
+esp_log_level_set("phy_init",     ESP_LOG_NONE);
+esp_log_level_set("esp32-hal-adc", ESP_LOG_NONE);
+```
+
+This cuts the logging path entirely, preventing the ISR from ever reaching `lock_init_generic`.
+
+### ADC2 / WiFi Hardware Conflict
+
+**Problem:** The ESP32 hardware shares ADC2 with the WiFi radio. Any `analogRead()` call on an ADC2 pin (GPIO 0–9, 12–15) while WiFi is active fails with `ESP_ERR_TIMEOUT` and logs an error every call. Two locations in the codebase called `analogRead(0)` to seed the random number generator.
+
+**Solution:** All `analogRead(0)` calls were replaced with `esp_random()`, which reads from the ESP32's hardware random number generator — a true entropy source that is available regardless of WiFi state:
+
+| File | Before | After |
+|------|--------|-------|
+| `EyesWidget.cpp` | `randomSeed(analogRead(0))` | `randomSeed(esp_random())` |
+| `NTPClient.cpp` | `randomSeed(analogRead(0))` | `randomSeed(esp_random())` |
+
+### TrueType Font Loading Resilience
+
+**Problem:** During rapid widget switching, the FreeType font cache manager (`_ftc_manager`) is unloaded and reloaded on every font change. Under transient heap pressure (e.g., immediately after an HTTP response), `loadFont()` can fail. The previous code then called `drawString()` with a NULL `_ftc_manager`, causing FreeType to dereference a null function pointer and crash with:
+
+```
+Guru Meditation Error: Core 1 panic'ed (InstrFetchProhibited)
+PC: 0x00000000
+```
+
+**Root cause detail:** `setFont()` called `loadFont()` multiple times in a retry loop *without* calling `unloadFont()` between attempts. Each failed attempt left `_ftc_manager` in a partially-initialized state. The next retry called `FTC_Manager_New()` on top of that corrupted state, leaking the previous manager and fragmenting the heap further — making subsequent attempts *less* likely to succeed.
+
+**Solution:** A `tryLoadFont()` helper was introduced that **always calls `unloadFont()` first**, guaranteeing a clean FreeType state before every attempt. A `m_pendingFont` field tracks the *desired* font independently of whether it is currently loaded.
+
+```
+setFont(FONT_X)
+  └─ m_pendingFont = FONT_X        ← intent recorded unconditionally
+  └─ tryLoadFont(FONT_X)
+       └─ m_render.unloadFont()    ← always clean slate
+       └─ m_render.loadFont(...)   ← single attempt
+  └─ if failed: m_curFont = NONE   ← safe, guarded
+
+drawString(...)
+  └─ if m_curFont == NONE:
+       └─ tryLoadFont(m_pendingFont)   ← retry each frame
+       └─ if still fails: skip frame   ← no crash, heals next draw
+  └─ else: render normally
+```
+
+This means a transient font-load failure results in **at most one blank frame** — the widget self-heals on the very next draw cycle without any manual intervention, instead of showing permanently black screens or crashing.
+
+### OpenFontRender Heap Fragmentation Fix
+
+**Problem:** `OpenFontRender` uses `std::queue<FT_UInt32>` internally to buffer Unicode codepoints during string rendering. `std::queue` is backed by `std::deque`, which allocates many small independent heap nodes (one per push). During high-frequency rendering (e.g., the 5-Zone Clock updating every second across all five screens), this created thousands of tiny heap allocations and deallocations per second, progressively fragmenting the heap until a contiguous block could no longer be found — triggering a `std::bad_alloc` exception.
+
+**Solution:** Both `std::queue` instances inside `OpenFontRender::drawHString()` were replaced with `std::vector` using `.reserve()` to pre-allocate a single contiguous block:
+
+```cpp
+// Before — allocates a new heap node for every character
+std::queue<FT_UInt32> unicode_q;
+unicode_q.push(unicode);
+
+// After — single contiguous allocation, zero per-character heap traffic
+std::vector<FT_UInt32> unicode_q;
+unicode_q.reserve(len);
+unicode_q.push_back(unicode);
+```
+
+Index-based iteration replaces the `front()` / `pop()` pattern, so no element is ever moved or destroyed mid-loop.
 
 ---
 

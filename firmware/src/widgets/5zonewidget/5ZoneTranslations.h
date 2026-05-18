@@ -8,6 +8,7 @@
 extern Translation t_5zoneDesc;
 extern Translation t_5zoneEnable;
 extern Translation t_5zoneTZDesc;
+extern Translation t_5zoneFlagDesc;
 extern Translation t_5zoneWorkStartDesc;
 extern Translation t_5zoneWorkEndDesc;
 extern Translation t_5zoneShowBizHours;

@@ -133,14 +133,25 @@ void TaskManager::processAwaitingTasks() {
     BaseType_t result = xTaskCreate(
         [](void *params) {
             auto *taskParams = static_cast<TaskParams *>(params);
-            String url = taskParams->url; // Copy URL before taskParams is deleted
-            taskParams->taskExec();
-            delete taskParams; // Ensure cleanup after execution
-            taskParamsCount.fetch_sub(1);
-
-            // Remove URL from active set now that task is complete
-            removeActiveUrl(url);
-
+            if (taskParams) {
+                String url = taskParams->url;
+                try {
+                    taskParams->taskExec();
+                    delete taskParams;
+                    taskParamsCount.fetch_sub(1);
+                    removeActiveUrl(url);
+                } catch (const std::exception &e) {
+                    Log.errorln("Task execution failed with exception: %s", e.what());
+                    delete taskParams;
+                    taskParamsCount.fetch_sub(1);
+                    removeActiveUrl(url);
+                } catch (...) {
+                    Log.errorln("Task execution failed with unknown exception");
+                    delete taskParams;
+                    taskParamsCount.fetch_sub(1);
+                    removeActiveUrl(url);
+                }
+            }
             Utils::setBusy(false);
             DEBUG_PRINTF("\u2705 Release semaphore\n");
             xSemaphoreGive(taskLimitSemaphore);

@@ -29,9 +29,11 @@ ScreenManager::ScreenManager(TFT_eSPI &tft) : m_tft(tft) {
     // I'm not sure which cache size is actually good.
     // It's a tradeoff between memory consumption and render speed.
     // Needs more testing to find the sweet spot.
-    m_render.setCacheSize(8, 8, 4096);
+    for (int i = 1; i <= 5; i++) {
+        m_render[i].setCacheSize(8, 8, 4096);
+        m_render[i].setDrawer(m_tft);
+    }
     setFont(DEFAULT_FONT);
-    m_render.setDrawer(m_tft);
 
     DEBUG_PRINTF("ScreenManager initialized\n");
     DEBUG_PRINTF("TFT_MOSI: %s\n", String(TFT_MOSI).c_str());
@@ -50,36 +52,50 @@ ScreenManager::ScreenManager(TFT_eSPI &tft) : m_tft(tft) {
 }
 
 // Helper: attempt to load the given font into m_render (one try, clean state).
-// Returns true on success. Always calls unloadFont() first so there is no
-// partial FreeType state from a previous failed attempt.
+// Returns true on success.
 bool ScreenManager::tryLoadFont(TTF_Font font) {
-    m_render.unloadFont(); // Ensure a clean slate before every attempt
-    FT_Error error = 1;
-    switch (font) {
-    case ROBOTO_REGULAR:
-        error = m_render.loadFont(robotoRegular_start, robotoRegular_end - robotoRegular_start);
-        break;
-    case FINAL_FRONTIER:
-        error = m_render.loadFont(finalFrontier_start, finalFrontier_end - finalFrontier_start);
-        break;
-    case DSEG7:
-        error = m_render.loadFont(dseg7_start, dseg7_end - dseg7_start);
-        break;
-    case DSEG14:
-        error = m_render.loadFont(dseg14_start, dseg14_end - dseg14_start);
-        break;
-    case ORBITRON_BOLD:
-        error = m_render.loadFont(orbitronBold_start, orbitronBold_end - orbitronBold_start);
-        break;
-    default:
-        break;
-    }
-    if (error == 0) {
-        m_curFont = font;
+    if (font == TTF_Font::NONE) {
+        m_curFont = TTF_Font::NONE;
         return true;
     }
-    m_curFont = TTF_Font::NONE;
-    return false;
+    
+    try {
+        if (!m_fontLoaded[font]) {
+            FT_Error error = 1;
+            switch (font) {
+            case ROBOTO_REGULAR:
+                error = m_render[font].loadFont(robotoRegular_start, robotoRegular_end - robotoRegular_start);
+                break;
+            case FINAL_FRONTIER:
+                error = m_render[font].loadFont(finalFrontier_start, finalFrontier_end - finalFrontier_start);
+                break;
+            case DSEG7:
+                error = m_render[font].loadFont(dseg7_start, dseg7_end - dseg7_start);
+                break;
+            case DSEG14:
+                error = m_render[font].loadFont(dseg14_start, dseg14_end - dseg14_start);
+                break;
+            case ORBITRON_BOLD:
+                error = m_render[font].loadFont(orbitronBold_start, orbitronBold_end - orbitronBold_start);
+                break;
+            default:
+                break;
+            }
+            if (error == 0) {
+                m_fontLoaded[font] = true;
+            } else {
+                return false;
+            }
+        }
+        m_curFont = font;
+        return true;
+    } catch (const std::exception &e) {
+        Log.errorln("Exception caught in tryLoadFont: %s", e.what());
+        return false;
+    } catch (...) {
+        Log.errorln("Unknown exception caught in tryLoadFont");
+        return false;
+    }
 }
 
 void ScreenManager::setFont(TTF_Font font) {
@@ -91,9 +107,17 @@ void ScreenManager::setFont(TTF_Font font) {
     }
 
     if (font == TTF_Font::NONE) {
-        m_render.unloadFont();
         m_curFont = TTF_Font::NONE;
         return;
+    }
+
+    // Unload all other fonts first to free up heap memory!
+    for (int i = 1; i <= 5; i++) {
+        if (i != font && m_fontLoaded[i]) {
+            Log.noticeln("Unloading inactive font %d to reclaim heap memory", i);
+            m_render[i].unloadFont();
+            m_fontLoaded[i] = false;
+        }
     }
 
     // Single clean attempt. If it fails, m_curFont stays NONE. drawString() will
@@ -108,7 +132,7 @@ TFT_eSPI &ScreenManager::getDisplay() {
 }
 
 OpenFontRender &ScreenManager::getRender() {
-    return m_render;
+    return m_render[m_curFont == TTF_Font::NONE ? DEFAULT_FONT : m_curFont];
 }
 
 // Selects a single screen
@@ -144,7 +168,7 @@ void ScreenManager::clearScreen(int screen) {
 void ScreenManager::fillScreen(uint32_t color) {
     m_tft.fillScreen(dim(color));
     // Set background for aliasing as well
-    m_render.setBackgroundColor(dim(color));
+    for (int i = 1; i <= 5; i++) m_render[i].setBackgroundColor(dim(color));
 }
 
 bool ScreenManager::setBrightness(uint8_t brightness) {
@@ -162,24 +186,26 @@ uint8_t ScreenManager::getBrightness() {
 }
 
 void ScreenManager::setFontColor(uint32_t color) {
-    m_render.setFontColor(dim(color));
+    for (int i = 1; i <= 5; i++) m_render[i].setFontColor(dim(color));
 }
 
 void ScreenManager::setFontColor(uint32_t color, uint32_t background) {
-    m_render.setFontColor(dim(color));
-    m_render.setBackgroundColor(dim(background));
+    for (int i = 1; i <= 5; i++) {
+        m_render[i].setFontColor(dim(color));
+        m_render[i].setBackgroundColor(dim(background));
+    }
 }
 
 void ScreenManager::setBackgroundColor(uint32_t color) {
-    m_render.setBackgroundColor(dim(color));
+    for (int i = 1; i <= 5; i++) m_render[i].setBackgroundColor(dim(color));
 }
 
 void ScreenManager::setAlignment(Align align) {
-    m_render.setAlignment(align);
+    for (int i = 1; i <= 5; i++) m_render[i].setAlignment(align);
 }
 
 void ScreenManager::setFontSize(uint32_t size) {
-    m_render.setFontSize(size);
+    for (int i = 1; i <= 5; i++) m_render[i].setFontSize(size);
 }
 
 // Selects all screens
@@ -202,51 +228,56 @@ unsigned int ScreenManager::calculateFitFontSize(uint32_t limit_width, uint32_t 
     if (m_curFont == TTF_Font::NONE) {
         return 0; // No font loaded, return 0 so callers can detect and skip
     }
-    unsigned int calcFontSize = m_render.calculateFitFontSize(limit_width, limit_height, layout, text.c_str());
+    unsigned int calcFontSize = m_render[m_curFont].calculateFitFontSize(limit_width, limit_height, layout, text.c_str());
     return calcFontSize;
 }
 
 void ScreenManager::drawString(const String &text, int x, int y) {
     // Use current font size and alignment
-    drawString(text, x, y, 0, m_render.getAlignment());
+    drawString(text, x, y, 0, m_render[m_curFont == TTF_Font::NONE ? DEFAULT_FONT : m_curFont].getAlignment());
 }
 
 void ScreenManager::drawString(const String &text, int x, int y, unsigned int fontSize, Align align, int32_t fgColor, int32_t bgColor, bool applyScale) {
-
-    // If the font failed to load (heap pressure during fast switching), try once
-    // more now that we're in a new call frame. This self-heals in subsequent
-    // draw cycles without any external intervention.
-    if (m_curFont == TTF_Font::NONE) {
-        if (m_pendingFont == TTF_Font::NONE) {
-            return; // Caller explicitly set NONE, nothing to draw
+    try {
+        // If the font failed to load (heap pressure during fast switching), try once
+        // more now that we're in a new call frame. This self-heals in subsequent
+        // draw cycles without any external intervention.
+        if (m_curFont == TTF_Font::NONE) {
+            if (m_pendingFont == TTF_Font::NONE) {
+                return; // Caller explicitly set NONE, nothing to draw
+            }
+            if (!tryLoadFont(m_pendingFont)) {
+                return; // Still can't load — skip this frame, try again next draw
+            }
+            // Load succeeded — fall through and render normally
         }
-        if (!tryLoadFont(m_pendingFont)) {
-            return; // Still can't load — skip this frame, try again next draw
+
+        if (fontSize == 0) {
+            fontSize = m_render[m_curFont].getFontSize();
+        } else if (applyScale) {
+            fontSize = getScaledFontSize(fontSize);
         }
-        // Load succeeded — fall through and render normally
-    }
+        if (fgColor == -1) {
+            fgColor = m_render[m_curFont].getFontColor();
+        } else {
+            fgColor = dim(fgColor);
+        }
+        if (bgColor == -1) {
+            bgColor = m_render[m_curFont].getBackgroundColor();
+        } else {
+            bgColor = dim(bgColor);
+        }
 
-    if (fontSize == 0) {
-        fontSize = m_render.getFontSize();
-    } else if (applyScale) {
-        fontSize = getScaledFontSize(fontSize);
+        // Correct misaligned Y — see https://github.com/takkaO/OpenFontRender/issues/38
+        FT_BBox box = m_render[m_curFont].calculateBoundingBox(0, 0, fontSize, Align::TopLeft, Layout::Horizontal, text.c_str());
+        m_render[m_curFont].setAlignment(align);
+        m_render[m_curFont].setFontSize(fontSize);
+        m_render[m_curFont].drawString(text.c_str(), x, y - box.yMin, fgColor, bgColor);
+    } catch (const std::exception &e) {
+        Log.errorln("Exception caught in drawString: %s", e.what());
+    } catch (...) {
+        Log.errorln("Unknown exception caught in drawString");
     }
-    if (fgColor == -1) {
-        fgColor = m_render.getFontColor();
-    } else {
-        fgColor = dim(fgColor);
-    }
-    if (bgColor == -1) {
-        bgColor = m_render.getBackgroundColor();
-    } else {
-        bgColor = dim(bgColor);
-    }
-
-    // Correct misaligned Y — see https://github.com/takkaO/OpenFontRender/issues/38
-    FT_BBox box = m_render.calculateBoundingBox(0, 0, fontSize, Align::TopLeft, Layout::Horizontal, text.c_str());
-    m_render.setAlignment(align);
-    m_render.setFontSize(fontSize);
-    m_render.drawString(text.c_str(), x, y - box.yMin, fgColor, bgColor);
 }
 
 void ScreenManager::drawCentreString(const String &text, int x, int y, unsigned int fontSize) {
@@ -259,7 +290,7 @@ void ScreenManager::drawFittedString(const String &text, int x, int y, int limit
 }
 
 void ScreenManager::drawFittedString(const String &text, int x, int y, int limit_w, int limit_h) {
-    drawFittedString(text, x, y, limit_w, limit_h, m_render.getAlignment());
+    drawFittedString(text, x, y, limit_w, limit_h, m_render[m_curFont == TTF_Font::NONE ? DEFAULT_FONT : m_curFont].getAlignment());
 }
 
 void ScreenManager::drawRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {

@@ -170,39 +170,45 @@ void loop() {
         widgetSet->setClearScreensOnDrawCurrent(); // Clear screen after wifiWidget
         delay(100);
     } else {
-        if (!widgetSet->initialUpdateDone()) {
-            CrashTrace::mark("loop:initial-update");
-            widgetSet->initializeAllWidgetsData();
-            MainHelper::setupWebPortalEndpoints();
+        try {
+            if (!widgetSet->initialUpdateDone()) {
+                CrashTrace::mark("loop:initial-update");
+                widgetSet->initializeAllWidgetsData();
+                MainHelper::setupWebPortalEndpoints();
 
-            // Start Network Task on Core 0 only after initial setup
-            if (networkTaskHandle == nullptr) {
-                networkTaskHandle = xTaskCreateStaticPinnedToCore(
-                    networkTask,
-                    "NetworkTask",
-                    8192,
-                    nullptr,
-                    1,
-                    networkTaskStack,
-                    &networkTaskBuffer,
-                    0 // Pinned to Core 0
-                );
+                // Start Network Task on Core 0 only after initial setup
+                if (networkTaskHandle == nullptr) {
+                    networkTaskHandle = xTaskCreateStaticPinnedToCore(
+                        networkTask,
+                        "NetworkTask",
+                        8192,
+                        nullptr,
+                        1,
+                        networkTaskStack,
+                        &networkTaskBuffer,
+                        0 // Pinned to Core 0
+                    );
+                }
             }
+            CrashTrace::mark("loop:time");
+            globalTime->updateTime();
+
+            CrashTrace::mark("loop:buttons");
+            MainHelper::checkButtons();
+
+            CrashTrace::mark("loop:update-current", widgetSet->getCurrent()->getName());
+            widgetSet->updateCurrent();
+            MainHelper::updateBrightnessByTime(globalTime->getHour24());
+            CrashTrace::mark("loop:draw-current", widgetSet->getCurrent()->getName());
+            widgetSet->drawCurrent();
+
+            CrashTrace::mark("loop:cycle");
+            MainHelper::checkCycleWidgets();
+        } catch (const std::exception &e) {
+            Log.errorln("Core 1 loop exception: %s", e.what());
+        } catch (...) {
+            Log.errorln("Core 1 loop unknown exception");
         }
-        CrashTrace::mark("loop:time");
-        globalTime->updateTime();
-
-        CrashTrace::mark("loop:buttons");
-        MainHelper::checkButtons();
-
-        CrashTrace::mark("loop:update-current", widgetSet->getCurrent()->getName());
-        widgetSet->updateCurrent();
-        MainHelper::updateBrightnessByTime(globalTime->getHour24());
-        CrashTrace::mark("loop:draw-current", widgetSet->getCurrent()->getName());
-        widgetSet->drawCurrent();
-
-        CrashTrace::mark("loop:cycle");
-        MainHelper::checkCycleWidgets();
     }
 #ifdef MEMORY_DEBUG_INTERVAL
     ShowMemoryUsage::printSerial();
