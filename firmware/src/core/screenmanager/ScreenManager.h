@@ -106,7 +106,7 @@ private:
     uint8_t m_screen_cs[5] = {SCREEN_1_CS, SCREEN_2_CS, SCREEN_3_CS, SCREEN_4_CS, SCREEN_5_CS};
     TFT_eSPI &m_tft;
     OpenFontRender m_render;
-    TTF_Font m_curFont     = TTF_Font::NONE; // font currently loaded in OpenFontRender
+    TTF_Font m_curFont = TTF_Font::NONE; // font currently loaded in OpenFontRender
     TTF_Font m_pendingFont = TTF_Font::NONE; // font requested by setFont() (survives failed loads)
     uint8_t m_brightness = TFT_BRIGHTNESS;
     uint32_t m_imageColor = 0;

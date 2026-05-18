@@ -1,6 +1,6 @@
 #include "Button.h"
-#include "config_helper.h"
 #include "GlobalResources.h"
+#include "config_helper.h"
 
 /**
  * After calling begin() make sure to attach an interrupt handler in main.cpp that will call isrButtonChange()

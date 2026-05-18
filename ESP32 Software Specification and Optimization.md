@@ -20,22 +20,22 @@ The ESP32-S3 features a dual-core Xtensa 32-bit LX7 microprocessor capable of ru
 
 For any subsequent firmware iterations to maintain strict backward compatibility with the existing hardware ecosystem and Montykona PCB routing, the physical General-Purpose Input/Output (GPIO) pin assignment must remain rigidly conserved.1
 
-| Subsystem | Function Designation | ESP32 GPIO | Electrical Characteristics and Architectural Notes |
-| :---- | :---- | :---- | :---- |
-| **Power Input** | VCC | 5V / VCC | Driven by USB-C breakout. Requires decoupling capacitors on the PCB.1 |
-| **Power Ground** | GND | GND | Common ground reference plane.1 |
-| **SPI Master Bus** | SDA (MOSI) | G17 | Master Out Slave In. Pushes high-speed pixel data to all displays.1 |
-| **SPI Master Bus** | SCLK | G23 | SPI Clock signal. Must support high-frequency transmission (target: 40 MHz).1 |
-| **Display Control** | DC (Data/Command) | G19 | Selector line determining if the SPI payload is an instruction or pixel data.1 |
-| **Display Control** | RST (Hardware Reset) | G18 | Global hardware reset line tied to all TFT modules simultaneously.1 |
-| **Multiplex Line 1** | CS1 (Screen 1\) | G13 | Chip Select for Display 1\. Active Low. Requires strict pull-up behavior.1 |
-| **Multiplex Line 2** | CS2 (Screen 2\) | G33 | Chip Select for Display 2\. Active Low. Requires strict pull-up behavior.1 |
-| **Multiplex Line 3** | CS3 (Screen 3\) | G32 | Chip Select for Display 3\. Active Low. Requires strict pull-up behavior.1 |
-| **Multiplex Line 4** | CS4 (Screen 4\) | G25 | Chip Select for Display 4\. Active Low. Requires strict pull-up behavior.1 |
-| **Multiplex Line 5** | CS5 (Screen 5\) | G21 | Chip Select for Display 5\. Active Low. Requires strict pull-up behavior.1 |
-| **User Input 1** | Button 1 (Left/Back) | G14 | Pulled to VCC/5V when pressed. Requires aggressive debouncing.1 |
-| **User Input 2** | Button 2 (Select/Menu) | G26 | Pulled to VCC/5V when pressed. Requires aggressive debouncing.1 |
-| **User Input 3** | Button 3 (Right/Fwd) | G27 | Pulled to VCC/5V when pressed. Requires aggressive debouncing.1 |
+| Subsystem            | Function Designation   | ESP32 GPIO | Electrical Characteristics and Architectural Notes                             |
+|:---------------------|:-----------------------|:-----------|:-------------------------------------------------------------------------------|
+| **Power Input**      | VCC                    | 5V / VCC   | Driven by USB-C breakout. Requires decoupling capacitors on the PCB.1          |
+| **Power Ground**     | GND                    | GND        | Common ground reference plane.1                                                |
+| **SPI Master Bus**   | SDA (MOSI)             | G17        | Master Out Slave In. Pushes high-speed pixel data to all displays.1            |
+| **SPI Master Bus**   | SCLK                   | G23        | SPI Clock signal. Must support high-frequency transmission (target: 40 MHz).1  |
+| **Display Control**  | DC (Data/Command)      | G19        | Selector line determining if the SPI payload is an instruction or pixel data.1 |
+| **Display Control**  | RST (Hardware Reset)   | G18        | Global hardware reset line tied to all TFT modules simultaneously.1            |
+| **Multiplex Line 1** | CS1 (Screen 1\)        | G13        | Chip Select for Display 1\. Active Low. Requires strict pull-up behavior.1     |
+| **Multiplex Line 2** | CS2 (Screen 2\)        | G33        | Chip Select for Display 2\. Active Low. Requires strict pull-up behavior.1     |
+| **Multiplex Line 3** | CS3 (Screen 3\)        | G32        | Chip Select for Display 3\. Active Low. Requires strict pull-up behavior.1     |
+| **Multiplex Line 4** | CS4 (Screen 4\)        | G25        | Chip Select for Display 4\. Active Low. Requires strict pull-up behavior.1     |
+| **Multiplex Line 5** | CS5 (Screen 5\)        | G21        | Chip Select for Display 5\. Active Low. Requires strict pull-up behavior.1     |
+| **User Input 1**     | Button 1 (Left/Back)   | G14        | Pulled to VCC/5V when pressed. Requires aggressive debouncing.1                |
+| **User Input 2**     | Button 2 (Select/Menu) | G26        | Pulled to VCC/5V when pressed. Requires aggressive debouncing.1                |
+| **User Input 3**     | Button 3 (Right/Fwd)   | G27        | Pulled to VCC/5V when pressed. Requires aggressive debouncing.1                |
 
 ### **Serial Peripheral Interface (SPI) Contention Analysis**
 
@@ -61,15 +61,15 @@ Core 1 operates in a completely isolated domain for the User Interface. Its prim
 
 Tasks pinned to Core 1 include the Display Director Task, which acts as the ultimate orchestrator for visual output. It calculates pixel animations, manages the lifecycle of individual widgets, and triggers the hardware Direct Memory Access (DMA) transfers to the SPI peripheral. An Input Interrupt Service Routine (ISR) Handler captures button state changes via hardware interrupts, immediately offloading the time-consuming debounce logic to a deferred FreeRTOS software timer. Additionally, a UX State Machine task evaluates user inputs to manage menu navigation, global screen dimming, and contextual transitions between the available data widgets.
 
-| Task Designation | Execution Core | FreeRTOS Priority | Estimated Stack Size (Bytes) | Operational Description |
-| :---- | :---- | :---- | :---- | :---- |
-| **System Idle** | Core 0 & 1 | 0 (Lowest) | Configurable | Feeds the hardware Watchdog Timers (WDT) and allows lower-power states. |
-| **Wi-Fi Event Loop** | Core 0 | 18 (High) | 4096 | Native ESP-IDF task managing PHY layer events, DHCP, and link states. |
-| **Async Web Server** | Core 0 | 5 (Medium) | 8192 | Serves HTML/CSS to clients during the AP configuration phase. |
-| **API Data Fetcher** | Core 0 | 3 (Low) | 8192 | Executes blocking HTTPS requests to REST APIs (Weather, Stocks). |
-| **Display Director** | Core 1 | 10 (High) | 8192 | Calculates framebuffers and orchestrates DMA push sequences to displays. |
-| **UX State Machine** | Core 1 | 5 (Medium) | 4096 | Processes user inputs and modifies global visualization states. |
-| **Input Handler (Deferred)** | Core 1 | 15 (Very High) | 2048 | Unblocked by ISR. Applies software debounce and queues UI events. |
+| Task Designation             | Execution Core | FreeRTOS Priority | Estimated Stack Size (Bytes) | Operational Description                                                  |
+|:-----------------------------|:---------------|:------------------|:-----------------------------|:-------------------------------------------------------------------------|
+| **System Idle**              | Core 0 & 1     | 0 (Lowest)        | Configurable                 | Feeds the hardware Watchdog Timers (WDT) and allows lower-power states.  |
+| **Wi-Fi Event Loop**         | Core 0         | 18 (High)         | 4096                         | Native ESP-IDF task managing PHY layer events, DHCP, and link states.    |
+| **Async Web Server**         | Core 0         | 5 (Medium)        | 8192                         | Serves HTML/CSS to clients during the AP configuration phase.            |
+| **API Data Fetcher**         | Core 0         | 3 (Low)           | 8192                         | Executes blocking HTTPS requests to REST APIs (Weather, Stocks).         |
+| **Display Director**         | Core 1         | 10 (High)         | 8192                         | Calculates framebuffers and orchestrates DMA push sequences to displays. |
+| **UX State Machine**         | Core 1         | 5 (Medium)        | 4096                         | Processes user inputs and modifies global visualization states.          |
+| **Input Handler (Deferred)** | Core 1         | 15 (Very High)    | 2048                         | Unblocked by ISR. Applies software debounce and queues UI events.        |
 
 ## **Concurrency Management and Race Condition Mitigation**
 
@@ -119,12 +119,12 @@ The architectural advantages of LovyanGFX are profound. It allows the instantiat
 
 When a visual widget is ready to be drawn, LovyanGFX constructs a linked list of DMA descriptors. It then instructs the DMA engine to push the framebuffer to the SPI peripheral. The critical distinction is that this process is non-blocking. The library automatically handles pulling the CS pin high via a hardware interrupt only when the DMA transfer completes. The CPU is instantly freed to begin calculating the visual layout for the next screen or processing a user input command, increasing apparent responsiveness exponentially.
 
-| Graphics Feature | Legacy TFT\_eSPI Implementation | Proposed LovyanGFX Architecture | Performance Impact |
-| :---- | :---- | :---- | :---- |
-| **Multi-Display CS Handling** | Manual GPIO toggling at application level.4 | Native hardware-level management per panel object. | Eliminates CPU busy-waiting; allows asynchronous bus arbitration. |
-| **DMA Utilization** | Frequently broken by manual CS management. | Deeply integrated via DMA linked lists and automated callbacks. | Frees Core 1 to calculate upcoming frames concurrently with transmission. |
-| **Sprite Memory Allocation** | Basic PSRAM support, prone to fragmentation. | Advanced packed memory mapping, native RGB565 handling. | Reduces heap fragmentation; prevents LoadProhibited hard faults. |
-| **Alpha Blending** | Computationally expensive loop-based pixel math. | Optimized vector instructions utilizing the Xtensa LX7 core. | Enables highly fluid crossfade animations for Nixie clock widgets.2 |
+| Graphics Feature              | Legacy TFT\_eSPI Implementation                  | Proposed LovyanGFX Architecture                                 | Performance Impact                                                        |
+|:------------------------------|:-------------------------------------------------|:----------------------------------------------------------------|:--------------------------------------------------------------------------|
+| **Multi-Display CS Handling** | Manual GPIO toggling at application level.4      | Native hardware-level management per panel object.              | Eliminates CPU busy-waiting; allows asynchronous bus arbitration.         |
+| **DMA Utilization**           | Frequently broken by manual CS management.       | Deeply integrated via DMA linked lists and automated callbacks. | Frees Core 1 to calculate upcoming frames concurrently with transmission. |
+| **Sprite Memory Allocation**  | Basic PSRAM support, prone to fragmentation.     | Advanced packed memory mapping, native RGB565 handling.         | Reduces heap fragmentation; prevents LoadProhibited hard faults.          |
+| **Alpha Blending**            | Computationally expensive loop-based pixel math. | Optimized vector instructions utilizing the Xtensa LX7 core.    | Enables highly fluid crossfade animations for Nixie clock widgets.2       |
 
 ### **Advanced Framebuffer Strategy and Sprite Drawing**
 
