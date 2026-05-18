@@ -9,7 +9,7 @@ void initializeGlobalResources() {
     if (!dataMutex) {
         dataMutex = xSemaphoreCreateMutex();
     }
-    
+
     // Create the event group
     if (!systemEventGroup) {
         systemEventGroup = xEventGroupCreate();
