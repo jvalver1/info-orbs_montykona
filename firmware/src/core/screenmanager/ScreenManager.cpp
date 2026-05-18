@@ -58,7 +58,7 @@ bool ScreenManager::tryLoadFont(TTF_Font font) {
         m_curFont = TTF_Font::NONE;
         return true;
     }
-    
+
     try {
         if (!m_fontLoaded[font]) {
             FT_Error error = 1;
@@ -168,7 +168,8 @@ void ScreenManager::clearScreen(int screen) {
 void ScreenManager::fillScreen(uint32_t color) {
     m_tft.fillScreen(dim(color));
     // Set background for aliasing as well
-    for (int i = 1; i <= 5; i++) m_render[i].setBackgroundColor(dim(color));
+    for (int i = 1; i <= 5; i++)
+        m_render[i].setBackgroundColor(dim(color));
 }
 
 bool ScreenManager::setBrightness(uint8_t brightness) {
@@ -186,7 +187,8 @@ uint8_t ScreenManager::getBrightness() {
 }
 
 void ScreenManager::setFontColor(uint32_t color) {
-    for (int i = 1; i <= 5; i++) m_render[i].setFontColor(dim(color));
+    for (int i = 1; i <= 5; i++)
+        m_render[i].setFontColor(dim(color));
 }
 
 void ScreenManager::setFontColor(uint32_t color, uint32_t background) {
@@ -197,15 +199,18 @@ void ScreenManager::setFontColor(uint32_t color, uint32_t background) {
 }
 
 void ScreenManager::setBackgroundColor(uint32_t color) {
-    for (int i = 1; i <= 5; i++) m_render[i].setBackgroundColor(dim(color));
+    for (int i = 1; i <= 5; i++)
+        m_render[i].setBackgroundColor(dim(color));
 }
 
 void ScreenManager::setAlignment(Align align) {
-    for (int i = 1; i <= 5; i++) m_render[i].setAlignment(align);
+    for (int i = 1; i <= 5; i++)
+        m_render[i].setAlignment(align);
 }
 
 void ScreenManager::setFontSize(uint32_t size) {
-    for (int i = 1; i <= 5; i++) m_render[i].setFontSize(size);
+    for (int i = 1; i <= 5; i++)
+        m_render[i].setFontSize(size);
 }
 
 // Selects all screens
