@@ -3,13 +3,13 @@
 
 #include <Arduino.h>
 #include <ArduinoLog.h>
+#include <atomic>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 #include <functional>
 #include <memory>
-#include <atomic>
 #include <set>
 
 // Forward declaration of TaskManager to avoid circular dependencies
