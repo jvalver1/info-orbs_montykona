@@ -108,7 +108,7 @@ private:
     OpenFontRender m_render[6];
     bool m_fontLoaded[6] = {false};
 <<<<<<< HEAD
-    TTF_Font m_curFont     = TTF_Font::NONE; // font currently loaded in OpenFontRender
+    TTF_Font m_curFont = TTF_Font::NONE; // font currently loaded in OpenFontRender
 =======
     TTF_Font m_curFont = TTF_Font::NONE; // font currently loaded in OpenFontRender
 =======
