@@ -134,13 +134,13 @@ void ClockWidget::draw(bool force) {
 
 void ClockWidget::displayAmPm(String &amPm, uint32_t color) {
     m_manager.selectScreen(2);
-    
+
     if (CLOCK_FONT == TTF_Font::DSEG7) {
         m_manager.setFont(TTF_Font::DSEG14);
     } else {
         m_manager.setFont(CLOCK_FONT);
     }
-    
+
     // Clear the AM/PM area with a filled rectangle instead of drawing black text
     // The AM/PM text is drawn at X: SCREEN_SIZE / 5 * 4, Y: SCREEN_SIZE / 2, Size: 25
     int x = SCREEN_SIZE / 5 * 4;
@@ -148,7 +148,7 @@ void ClockWidget::displayAmPm(String &amPm, uint32_t color) {
     int w = 50;
     int h = 30;
     m_manager.fillRect(x - w / 2, y - h / 2, w, h, TFT_BLACK);
-    
+
     m_manager.setFontColor(color, TFT_BLACK);
     m_manager.drawString(amPm, x, y, 25, Align::MiddleCenter);
 }
