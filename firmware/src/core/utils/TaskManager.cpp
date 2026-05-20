@@ -127,7 +127,7 @@ void TaskManager::httpWorkerTask(void *pvParameters) {
                 CrashTrace::mark("task:create", taskParams->url);
                 String url = taskParams->url;
                 try {
-                    taskParams->taskExec();
+                    taskParams->taskExec(taskParams->url, taskParams->callback, taskParams->preProcessResponse);
                     delete taskParams;
                     taskParamsCount.fetch_sub(1);
                     removeActiveUrl(url);

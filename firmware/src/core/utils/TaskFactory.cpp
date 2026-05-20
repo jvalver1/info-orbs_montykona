@@ -7,6 +7,8 @@
 #include <ArduinoLog.h>
 #include <HTTPClient.h>
 
+#include <lwip/sockets.h>
+
 void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback, Task::PreProcessCallback preProcess) {
     CrashTrace::mark("task:http:start", url);
     DEBUG_PRINTF("Starting HTTP request for: %s\n", url.c_str());
@@ -14,6 +16,18 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
     WiFiClient *client = nullptr;
     int httpCode = -1;
     String response;
+
+    auto applyLinger = [&]() {
+        if (client != nullptr) {
+            int sock_fd = client->fd();
+            if (sock_fd >= 0) {
+                struct linger sl;
+                sl.l_onoff = 1;
+                sl.l_linger = 0;
+                setsockopt(sock_fd, SOL_SOCKET, SO_LINGER, &sl, sizeof(sl));
+            }
+        }
+    };
 
     try {
         bool isHttps = url.startsWith("https://");
@@ -43,6 +57,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                 } else {
                     Log.errorln("HTTP request failed, error code: %d", httpCode);
                 }
+                applyLinger();
                 http.end();
             } else {
                 Log.errorln("HTTP begin failed for %s", url.c_str());
@@ -56,6 +71,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
         httpCode = -1;
     }
 
+    applyLinger();
     delete client;
 
     if (preProcess) {

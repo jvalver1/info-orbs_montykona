@@ -343,9 +343,9 @@ private:
 	std::function<void(void)> _startWrite;
 	std::function<void(void)> _endWrite;
 
-	FTC_Manager _ftc_manager;
-	FTC_CMapCache _ftc_cmap_cache;
-	FTC_ImageCache _ftc_image_cache;
+	static FTC_Manager _ftc_manager;
+	static FTC_CMapCache _ftc_cmap_cache;
+	static FTC_ImageCache _ftc_image_cache;
 
 	OFR::FaceRec _face_id;
 

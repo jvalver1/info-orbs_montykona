@@ -14,12 +14,12 @@ class TaskFactory {
 public:
     static std::unique_ptr<Task> createHttpGetTask(const String &url, Task::ResponseCallback callback, Task::PreProcessCallback preProcess = nullptr) {
         return make_unique<Task>(
-            url, callback, [url, callback, preProcess]() { TaskFactory::httpGetTask(url, callback, preProcess); }, preProcess);
+            url, callback, [](const String &u, Task::ResponseCallback cb, Task::PreProcessCallback pp) { TaskFactory::httpGetTask(u, cb, pp); }, preProcess);
     }
 
     static std::unique_ptr<Task> createMqttTask(const String &topic, Task::ResponseCallback callback) {
         return make_unique<Task>(
-            topic, callback, []() {
+            topic, callback, [](const String &t, Task::ResponseCallback cb, Task::PreProcessCallback pp) {
                 // Placeholder for MQTT task execution logic
             },
             nullptr);

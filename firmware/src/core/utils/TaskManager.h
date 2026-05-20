@@ -20,7 +20,7 @@ class Task {
 public:
     using ResponseCallback = std::function<void(int httpCode, const String &response)>;
     using PreProcessCallback = std::function<void(int httpCode, String &response)>;
-    using TaskExecCallback = std::function<void()>; // No parameters
+    using TaskExecCallback = std::function<void(const String &, ResponseCallback, PreProcessCallback)>;
 
     Task(const String &url, ResponseCallback callback, TaskExecCallback taskExec, PreProcessCallback preProcess = nullptr)
         : url(url), callback(callback), preProcessResponse(preProcess), taskExec(taskExec) {}

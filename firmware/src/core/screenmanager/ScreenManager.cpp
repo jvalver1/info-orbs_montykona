@@ -114,7 +114,6 @@ void ScreenManager::setFont(TTF_Font font) {
     // Unload all other fonts first to free up heap memory!
     for (int i = 1; i <= 5; i++) {
         if (i != font && m_fontLoaded[i]) {
-            Log.noticeln("Unloading inactive font %d to reclaim heap memory", i);
             m_render[i].unloadFont();
             m_fontLoaded[i] = false;
         }

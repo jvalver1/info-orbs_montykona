@@ -81,6 +81,12 @@ FT_Library g_FtLibrary;
 bool g_NeedInitialize                     = true;
 std::function<void(const char *)> g_Print = [](const char *s) { return; };
 
+static FontDataInfo g_fontDataInfo = {OFR::FROM_MEMORY, 0};
+
+FTC_Manager OpenFontRender::_ftc_manager = nullptr;
+FTC_CMapCache OpenFontRender::_ftc_cmap_cache = nullptr;
+FTC_ImageCache OpenFontRender::_ftc_image_cache = nullptr;
+
 #ifdef FREERTOS_CONFIG_H
 TaskHandle_t g_RenderTaskHandle                   = NULL;
 volatile enum RenderTaskStatus g_RenderTaskStatus = IDLE;
@@ -130,10 +136,6 @@ OpenFontRender::OpenFontRender() {
 	_debug_level           = OFR_NONE;
 
 	_flags.enable_optimized_drawing = false;
-
-	_ftc_manager     = nullptr;
-	_ftc_cmap_cache  = nullptr;
-	_ftc_image_cache = nullptr;
 
 	_saved_state.drawn_bg_point       = {0, 0};
 	_saved_state.prev_max_font_height = 0;
@@ -457,9 +459,6 @@ FT_Error OpenFontRender::loadFont(const char *fpath, uint8_t target_face_index) 
 void OpenFontRender::unloadFont() {
 	if (!g_NeedInitialize) {
 		FTC_Manager_RemoveFaceID(_ftc_manager, &_face_id);
-		FTC_Manager_Reset(_ftc_manager);
-		FTC_Manager_Done(_ftc_manager);
-		// FT_Done_FreeType(g_FtLibrary); // Prevent FreeType library from shutting down to avoid memory fragmentation
 
 		delete[] _face_id.filepath;
 	}
@@ -1321,11 +1320,24 @@ FT_Error OpenFontRender::loadFont(enum OFR::LoadFontFrom from) {
 		g_NeedInitialize = false;
 	}
 
-	// 現在の引数は適当
-	error = FTC_Manager_New(g_FtLibrary, _cache.max_faces, _cache.max_sizes, _cache.max_bytes, &ftc_face_requester, &info, &_ftc_manager);
-	if (error) {
-		debugPrintf((_debug_level & OFR_ERROR), "FTC_Manager_New error: 0x%02X\n", error);
-		return error;
+	if (_ftc_manager == nullptr) {
+		error = FTC_Manager_New(g_FtLibrary, _cache.max_faces, _cache.max_sizes, _cache.max_bytes, &ftc_face_requester, &g_fontDataInfo, &_ftc_manager);
+		if (error) {
+			debugPrintf((_debug_level & OFR_ERROR), "FTC_Manager_New error: 0x%02X\n", error);
+			return error;
+		}
+
+		error = FTC_CMapCache_New(_ftc_manager, &_ftc_cmap_cache);
+		if (error) {
+			debugPrintf((_debug_level & OFR_ERROR), "FTC_CMapCache_New error: 0x%02X\n", error);
+			return error;
+		}
+
+		error = FTC_ImageCache_New(_ftc_manager, &_ftc_image_cache);
+		if (error) {
+			debugPrintf((_debug_level & OFR_ERROR), "FTC_ImageCache_New error: 0x%02X\n", error);
+			return error;
+		}
 	}
 
 	error = FTC_Manager_LookupFace(_ftc_manager, &_face_id, &face);
@@ -1334,17 +1346,7 @@ FT_Error OpenFontRender::loadFont(enum OFR::LoadFontFrom from) {
 		return error;
 	}
 
-	error = FTC_CMapCache_New(_ftc_manager, &_ftc_cmap_cache);
-	if (error) {
-		debugPrintf((_debug_level & OFR_ERROR), "FTC_CMapCache_New error: 0x%02X\n", error);
-		return error;
-	}
 
-	error = FTC_ImageCache_New(_ftc_manager, &_ftc_image_cache);
-	if (error) {
-		debugPrintf((_debug_level & OFR_ERROR), "FTC_ImageCache_New error: 0x%02X\n", error);
-		return error;
-	}
 
 	if (FT_HAS_VERTICAL(face) == 0) {
 		// Current font does NOT support vertical layout
