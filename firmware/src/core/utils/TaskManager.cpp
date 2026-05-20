@@ -36,6 +36,16 @@ TaskManager::TaskManager() {
 TaskManager *TaskManager::getInstance() {
     if (!instance) {
         instance = new TaskManager();
+        
+        // Spawn the static worker task that handles HTTP requests
+        xTaskCreate(
+            httpWorkerTask,
+            "HTTP_WORKER",
+            STACK_SIZE,
+            nullptr,
+            TASK_PRIORITY,
+            nullptr
+        );
     }
     return instance;
 }
@@ -90,50 +100,31 @@ bool TaskManager::addTask(std::unique_ptr<Task> task) {
     return true;
 }
 
-void TaskManager::processAwaitingTasks() {
-    // First check if there are any requests to process
-    if (uxQueueMessagesWaiting(requestQueue) == 0) {
-        return; // No requests in queue
-    }
+void TaskManager::httpWorkerTask(void *pvParameters) {
+    while (true) {
+        TaskParams *taskParams = nullptr;
+        
+        // Block permanently until a task is available in the queue
+        if (xQueueReceive(requestQueue, &taskParams, portMAX_DELAY) == pdPASS) {
+            
+            if (xSemaphoreTake(taskLimitSemaphore, 0) == pdTRUE) {
+                Utils::setBusy(true);
+                uint32_t current = activeRequests.fetch_add(1) + 1;
 
-    if (xSemaphoreTake(taskLimitSemaphore, 0) != pdTRUE) {
-        return;
-    }
-
-    Utils::setBusy(true);
-    uint32_t current = activeRequests.fetch_add(1) + 1;
-
-    uint32_t maxSeen = maxConcurrentRequests.load();
-    while (current > maxSeen && !maxConcurrentRequests.compare_exchange_weak(maxSeen, current)) {
-        // CAS loop to update max
-    }
-#ifdef TASKMANAGER_DEBUG
-    Log.noticeln("\u2705 Obtained semaphore");
-    Log.noticeln("Active requests: %d (Max seen: %d)", activeRequests.load(), maxConcurrentRequests.load());
-#endif
-
-    // Get next request
-    TaskParams *taskParams = nullptr;
-    if (xQueueReceive(requestQueue, &taskParams, 0) != pdPASS) {
-        DEBUG_PRINTF("\u26a0\ufe0f Queue empty after size check!\n");
-        activeRequests.fetch_sub(1);
-        Utils::setBusy(false);
-        xSemaphoreGive(taskLimitSemaphore);
-        return;
-    }
+                uint32_t maxSeen = maxConcurrentRequests.load();
+                while (current > maxSeen && !maxConcurrentRequests.compare_exchange_weak(maxSeen, current)) {
+                    // CAS loop to update max
+                }
 
 #ifdef TASKMANAGER_DEBUG
-    Log.noticeln("Processing request: %s (Remaining in queue: %d)",
-                 taskParams->url.c_str(),
-                 uxQueueMessagesWaiting(requestQueue));
+                Log.noticeln("\u2705 Obtained semaphore");
+                Log.noticeln("Active requests: %d (Max seen: %d)", activeRequests.load(), maxConcurrentRequests.load());
+                Log.noticeln("Processing request: %s (Remaining in queue: %d)",
+                             taskParams->url.c_str(),
+                             uxQueueMessagesWaiting(requestQueue));
 #endif
 
-    CrashTrace::mark("task:create", taskParams->url);
-    TaskHandle_t taskHandle;
-    BaseType_t result = xTaskCreate(
-        [](void *params) {
-            auto *taskParams = static_cast<TaskParams *>(params);
-            if (taskParams) {
+                CrashTrace::mark("task:create", taskParams->url);
                 String url = taskParams->url;
                 try {
                     taskParams->taskExec();
@@ -151,27 +142,18 @@ void TaskManager::processAwaitingTasks() {
                     taskParamsCount.fetch_sub(1);
                     removeActiveUrl(url);
                 }
+                
+                Utils::setBusy(false);
+#ifdef TASKMANAGER_DEBUG
+                DEBUG_PRINTF("\u2705 Release semaphore\n");
+#endif
+                xSemaphoreGive(taskLimitSemaphore);
+            } else {
+                // If we couldn't get the semaphore (shouldn't happen with single worker), put it back
+                xQueueSendToFront(requestQueue, &taskParams, 0);
+                vTaskDelay(pdMS_TO_TICKS(10));
             }
-            Utils::setBusy(false);
-            DEBUG_PRINTF("\u2705 Release semaphore\n");
-            xSemaphoreGive(taskLimitSemaphore);
-            vTaskDelete(nullptr);
-        },
-        "TASK_EXEC",
-        STACK_SIZE,
-        taskParams,
-        TASK_PRIORITY,
-        &taskHandle);
-
-    if (result != pdPASS) {
-        Log.errorln("Failed to create HTTP request task");
-        String url = taskParams->url;
-        delete taskParams; // Ensure the object is deleted if task creation fails
-        taskParamsCount.fetch_sub(1);
-        Log.errorln("TaskParams deleted (task creation failed): %d", taskParamsCount.load());
-        removeActiveUrl(url);
-        Utils::setBusy(false);
-        xSemaphoreGive(taskLimitSemaphore);
+        }
     }
 }
 

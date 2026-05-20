@@ -459,11 +459,11 @@ void OpenFontRender::unloadFont() {
 		FTC_Manager_RemoveFaceID(_ftc_manager, &_face_id);
 		FTC_Manager_Reset(_ftc_manager);
 		FTC_Manager_Done(_ftc_manager);
-		FT_Done_FreeType(g_FtLibrary);
+		// FT_Done_FreeType(g_FtLibrary); // Prevent FreeType library from shutting down to avoid memory fragmentation
 
 		delete[] _face_id.filepath;
 	}
-	g_NeedInitialize = true;
+	// g_NeedInitialize = true; // Keep library initialized
 }
 
 /*!

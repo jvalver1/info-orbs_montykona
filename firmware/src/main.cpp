@@ -147,7 +147,7 @@ void networkTask(void *pvParameters) {
         if (wifiManager) {
             wifiManager->process();
         }
-        TaskManager::getInstance()->processAwaitingTasks();
+        // TaskManager::getInstance()->processAwaitingTasks(); // Replaced by static worker task
         TaskManager::getInstance()->processTaskResponses();
         vTaskDelay(pdMS_TO_TICKS(10)); // Yield to other Core 0 tasks
     }

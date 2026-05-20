@@ -57,7 +57,6 @@ public:
 
     static TaskManager *getInstance();
     bool addTask(std::unique_ptr<Task> task);
-    void processAwaitingTasks();
     void processTaskResponses();
 
     // Thread-safe counters (accessed from both main loop and background tasks)
@@ -88,6 +87,8 @@ public:
 
 private:
     TaskManager();
+
+    static void httpWorkerTask(void *pvParameters);
 
     static TaskManager *instance;
 

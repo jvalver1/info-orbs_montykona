@@ -165,25 +165,24 @@ void ClockWidget::update(bool force) {
     m_amPm = time->isPM() ? "PM" : "AM";
 
     if (m_lastHourSingle != m_hourSingle || force) {
-        if (m_hourSingle < 10) {
-            if (m_format == CLOCK_FORMAT_24_HOUR) {
-                m_display1Digit = "0";
-            } else {
-                m_display1Digit = " ";
-            }
+        char buf[3];
+        if (m_format == CLOCK_FORMAT_24_HOUR) {
+            snprintf(buf, sizeof(buf), "%02d", m_hourSingle);
         } else {
-            m_display1Digit = int(m_hourSingle / 10);
+            snprintf(buf, sizeof(buf), "%2d", m_hourSingle);
         }
-        m_display2Digit = m_hourSingle % 10;
+        m_display1Digit = String(buf[0]);
+        m_display2Digit = String(buf[1]);
 
         m_lastHourSingle = m_hourSingle;
     }
 
     if (m_lastMinuteSingle != m_minuteSingle || force) {
-        String currentMinutePadded = String(m_minuteSingle).length() == 1 ? "0" + String(m_minuteSingle) : String(m_minuteSingle);
-
-        m_display4Digit = currentMinutePadded.substring(0, 1);
-        m_display5Digit = currentMinutePadded.substring(1, 2);
+        char buf[3];
+        snprintf(buf, sizeof(buf), "%02d", m_minuteSingle);
+        
+        m_display4Digit = String(buf[0]);
+        m_display5Digit = String(buf[1]);
 
         m_lastMinuteSingle = m_minuteSingle;
     }
