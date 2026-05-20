@@ -101,6 +101,16 @@ bool TaskManager::addTask(std::unique_ptr<Task> task) {
 
 void TaskManager::httpWorkerTask(void *pvParameters) {
     while (true) {
+        // Fix 4: Back-pressure — if internal DRAM is low, pause before processing
+        // the next request. This gives the heap allocator time to coalesce freed
+        // blocks from the previous SSL teardown and FreeType glyph operations,
+        // reducing the chance of the next SSL handshake failing with -32512.
+        size_t freeHeap = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        if (freeHeap < 60000) {
+            Log.warningln("[HEAP] Low internal DRAM (%u B free), pausing HTTP worker 500 ms", freeHeap);
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }
+
         TaskParams *taskParams = nullptr;
 
         // Block permanently until a task is available in the queue

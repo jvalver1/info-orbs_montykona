@@ -26,11 +26,11 @@ ScreenManager::ScreenManager(TFT_eSPI &tft) : m_tft(tft) {
     TJpgDec.setJpgScale(1);
     TJpgDec.setCallback(tftOutput);
 
-    // I'm not sure which cache size is actually good.
-    // It's a tradeoff between memory consumption and render speed.
-    // Needs more testing to find the sweet spot.
+    // Fix 2: Start all render instances with zero glyph cache so no DRAM is consumed
+    // until a font is actually selected. The cache for the active font is enabled
+    // dynamically inside setFont().
     for (int i = 1; i <= 5; i++) {
-        m_render[i].setCacheSize(8, 8, 4096);
+        m_render[i].setCacheSize(0, 0, 0);
         m_render[i].setDrawer(m_tft);
     }
     setFont(DEFAULT_FONT);
@@ -111,18 +111,31 @@ void ScreenManager::setFont(TTF_Font font) {
         return;
     }
 
-    // Unload all other fonts first to free up heap memory!
+    // Unload all other fonts and zero their caches to free DRAM (Fix 2)
     for (int i = 1; i <= 5; i++) {
         if (i != font && m_fontLoaded[i]) {
             m_render[i].unloadFont();
+            m_render[i].setCacheSize(0, 0, 0); // Fix 2: release cache DRAM on unload
             m_fontLoaded[i] = false;
         }
     }
 
+    // Fix 2: Enable glyph cache only for the font we are about to load
+    m_render[(int)font].setCacheSize(8, 8, 4096);
+
     // Single clean attempt. If it fails, m_curFont stays NONE. drawString() will
     // retry on every subsequent frame until heap pressure subsides.
     if (!tryLoadFont(font)) {
-        Log.warningln("setFont %d failed – will retry in drawString()", font);
+        // Diag 3: Raise to ERROR so the failure is visible at default LOG_LEVEL_INFO,
+        // and include the largest contiguous free block to diagnose fragmentation.
+        size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        size_t totalFree = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        Log.errorln("setFont(%d) FAILED – clock/widget fonts will not render. "
+                    "Largest free DRAM block: %u B, total free: %u B. "
+                    "Will retry in drawString().",
+                    (int)font, largest, totalFree);
+        // Cache is useless if load failed – release it to recover some DRAM
+        m_render[(int)font].setCacheSize(0, 0, 0);
     }
 }
 

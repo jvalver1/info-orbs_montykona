@@ -11,7 +11,7 @@
 #include "git_info.h"
 #include <Arduino.h>
 
-#define VERSION "2.1JJV"
+#define VERSION "2.5 JJV"
 
 // Set defaults if not set in config.h
 #ifndef TFT_BRIGHTNESS
