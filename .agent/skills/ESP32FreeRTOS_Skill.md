@@ -23,13 +23,13 @@ Always apply FreeRTOS patterns appropriate to the ESP32's dual-core SMP architec
 
 Choose the right IPC primitive based on your use case:
 
-| Primitive | Use Case | Notes |
-|---|---|---|
-| **Queue** | General-purpose data passing (multi-producer, multi-consumer) | Copy-by-value; thread-safe; tasks block on empty/full |
-| **Task Notification** | Lightweight single-event signaling or passing one value | Fastest and smallest RAM footprint; replaces binary semaphore for simple events |
-| **Stream Buffer** | Continuous raw byte streaming (single writer, single reader) | Not thread-safe for multiple simultaneous writers |
-| **Message Buffer** | Discrete variable-length messages (single writer, single reader) | Built on stream buffers; preserves message boundaries |
-| **Ring Buffer** | Zero-copy or DMA-adjacent data passing | ESP-IDF extension; supports `xRingbufferSend` / `xRingbufferReceive` |
+| Primitive             | Use Case                                                         | Notes                                                                           |
+|-----------------------|------------------------------------------------------------------|---------------------------------------------------------------------------------|
+| **Queue**             | General-purpose data passing (multi-producer, multi-consumer)    | Copy-by-value; thread-safe; tasks block on empty/full                           |
+| **Task Notification** | Lightweight single-event signaling or passing one value          | Fastest and smallest RAM footprint; replaces binary semaphore for simple events |
+| **Stream Buffer**     | Continuous raw byte streaming (single writer, single reader)     | Not thread-safe for multiple simultaneous writers                               |
+| **Message Buffer**    | Discrete variable-length messages (single writer, single reader) | Built on stream buffers; preserves message boundaries                           |
+| **Ring Buffer**       | Zero-copy or DMA-adjacent data passing                           | ESP-IDF extension; supports `xRingbufferSend` / `xRingbufferReceive`            |
 
 * **Avoid global variables:** Do not share mutable state between tasks via globals. Pass data through queues or protected with mutexes.
 * **Queue semantics:** Queues perform copy-by-value, ensuring data integrity. They decouple producer (e.g., sensor ISR) from consumer (e.g., display task). Size the queue depth to absorb burst traffic without dropping items.
