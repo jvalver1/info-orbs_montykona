@@ -1,4 +1,5 @@
 #include "MQTTWidget.h"
+#include "CrashTrace.h"
 #include "MQTTTranslations.h"
 #include <ArduinoLog.h>
 
@@ -128,6 +129,7 @@ void MQTTWidget::setup() {
 
 // Update method
 void MQTTWidget::update(bool force) {
+    CrashTrace::mark("mqtt:update");
     //    Log.traceln("Inside update method - %s" + mqttClient.connected().c_str());
 
     if (!mqttClient.connected()) {
@@ -138,6 +140,7 @@ void MQTTWidget::update(bool force) {
 
 // Draw method: Draws all orbs (can be used for initial drawing or full refresh)
 void MQTTWidget::draw(bool force) {
+    CrashTrace::mark("mqtt:draw");
     m_manager.setFont(DEFAULT_FONT);
 
     if (force) {

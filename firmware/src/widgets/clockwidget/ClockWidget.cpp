@@ -1,6 +1,7 @@
 #include "ClockWidget.h"
 #include "ArduinoLog.h"
 #include "ClockTranslations.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 
 ClockWidget::ClockWidget(ScreenManager &manager, ConfigManager &config)
@@ -82,6 +83,7 @@ void ClockWidget::setup() {
 }
 
 void ClockWidget::draw(bool force) {
+    CrashTrace::mark("clock:draw");
     m_manager.setFont(CLOCK_FONT);
     GlobalTime *time = GlobalTime::getInstance();
 
@@ -150,6 +152,7 @@ void ClockWidget::displayAmPm(String &amPm, uint32_t color) {
 }
 
 void ClockWidget::update(bool force) {
+    CrashTrace::mark("clock:update");
 
     GlobalTime *time = GlobalTime::getInstance();
     if (force) {

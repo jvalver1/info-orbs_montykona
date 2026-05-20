@@ -1,5 +1,6 @@
 
 #include "WebDataWidget.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 
 WebDataWidget::WebDataWidget(ScreenManager &manager, ConfigManager &config, String url) : Widget(manager, config) {
@@ -21,6 +22,7 @@ void WebDataWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
 }
 
 void WebDataWidget::draw(bool force) {
+    CrashTrace::mark("webdata:draw");
     for (int i = 0; i < 5; i++) {
         WebDataModel *data = &m_obj[i];
         if (force) {
@@ -36,6 +38,7 @@ void WebDataWidget::draw(bool force) {
 }
 
 void WebDataWidget::update(bool force) {
+    CrashTrace::mark("webdata:update");
     if (force || m_lastUpdate == 0 || (millis() - m_lastUpdate) >= m_updateDelay) {
         HTTPClient http;
         http.begin(httpRequestAddress);

@@ -1,4 +1,5 @@
 #include "EyesWidget.h"
+#include "CrashTrace.h"
 #include "EyesTranslations.h"
 #include "icons.h"
 #include <Arduino.h>
@@ -38,6 +39,7 @@ void EyesWidget::setup() {
 }
 
 void EyesWidget::update(bool force) {
+    CrashTrace::mark("eyes:update");
     unsigned long currentTime = millis();
     bool stateChanged = false;
 
@@ -99,6 +101,7 @@ void EyesWidget::update(bool force) {
 }
 
 void EyesWidget::draw(bool force) {
+    CrashTrace::mark("eyes:draw");
     // Only redraw if something changed or first draw
     if (!m_needsRedraw && !m_firstDraw && !force) {
         return;

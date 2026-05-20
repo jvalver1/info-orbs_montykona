@@ -1,5 +1,6 @@
 #include "5ZoneWidget.h"
 #include "5ZoneTranslations.h"
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 #include "FlagImages.h"
 #include "PosixTimezones.h"
@@ -104,6 +105,7 @@ void FiveZoneWidget::getTZoneOffset(int8_t zoneIndex) {
 }
 
 void FiveZoneWidget::update(bool force) {
+    CrashTrace::mark("5zone:update");
     if (m_time == nullptr) {
         m_time = GlobalTime::getInstance();
     }
@@ -142,6 +144,7 @@ int FiveZoneWidget::getClockStamp() {
 }
 
 void FiveZoneWidget::draw(bool force) {
+    CrashTrace::mark("5zone:draw");
     int clockStamp = getClockStamp();
     int currentSecond = m_time->getSecond();
 

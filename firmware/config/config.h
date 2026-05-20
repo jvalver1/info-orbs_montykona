@@ -41,13 +41,13 @@
 // #define LOG_LEVEL LOG_LEVEL_INFO
 
 // Include current time in all log output
-// #define LOG_TIMESTAMP
+#define LOG_TIMESTAMP
 
 // Enable if you're having issues with the app outputting garbage characters on startup, delay in ms
 // #define SERIAL_INTERFACE_INIT_DELAY 4000
 
 // if not defined, then no memory debugging is emitted
-// #define MEMORY_DEBUG_INTERVAL 5000
+#define MEMORY_DEBUG_INTERVAL 10000
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // WEB-BASED CONFIGURATION

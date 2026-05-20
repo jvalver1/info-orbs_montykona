@@ -1,5 +1,6 @@
 #include "ParqetWidget.h"
 
+#include "CrashTrace.h"
 #include "DebugHelper.h"
 #include "ParqetTranslations.h"
 #include <ArduinoJson.h>
@@ -35,6 +36,7 @@ void ParqetWidget::setup() {
 }
 
 void ParqetWidget::draw(bool force) {
+    CrashTrace::mark("parqet:draw");
     m_manager.setFont(DEFAULT_FONT);
     // Check if we need more than one page
     bool isMultiPage = m_portfolio.getHoldingsCount() > (m_showClock ? 4 : 5);
@@ -82,6 +84,7 @@ void ParqetWidget::draw(bool force) {
 }
 
 void ParqetWidget::update(bool force) {
+    CrashTrace::mark("parqet:update");
 
     DEBUG_PRINTLN("Update ParqetPortfolio");
     if (m_everDrawn && m_showClock) {

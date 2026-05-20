@@ -1,4 +1,5 @@
 #include "MatrixWidget.h"
+#include "CrashTrace.h"
 #include "MatrixTranslations.h"
 
 MatrixWidget::MatrixWidget(ScreenManager &manager, ConfigManager &config) : Widget(manager, config) {
@@ -40,9 +41,11 @@ void MatrixWidget::setup() {
 }
 
 void MatrixWidget::update(bool force) {
+    CrashTrace::mark("matrix:update");
 }
 
 void MatrixWidget::draw(bool force) {
+    CrashTrace::mark("matrix:draw");
     m_manager.selectAllScreens();
     matrix_effect.loop();
 }
