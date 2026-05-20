@@ -182,7 +182,7 @@ void ClockWidget::update(bool force) {
     if (m_lastMinuteSingle != m_minuteSingle || force) {
         char buf[3];
         snprintf(buf, sizeof(buf), "%02d", m_minuteSingle);
-        
+
         m_display4Digit = String(buf[0]);
         m_display5Digit = String(buf[1]);
 

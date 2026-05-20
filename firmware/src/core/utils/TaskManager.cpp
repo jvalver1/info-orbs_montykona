@@ -36,7 +36,7 @@ TaskManager::TaskManager() {
 TaskManager *TaskManager::getInstance() {
     if (!instance) {
         instance = new TaskManager();
-        
+
         // Spawn the static worker task that handles HTTP requests
         xTaskCreate(
             httpWorkerTask,
@@ -44,8 +44,7 @@ TaskManager *TaskManager::getInstance() {
             STACK_SIZE,
             nullptr,
             TASK_PRIORITY,
-            nullptr
-        );
+            nullptr);
     }
     return instance;
 }
@@ -103,10 +102,10 @@ bool TaskManager::addTask(std::unique_ptr<Task> task) {
 void TaskManager::httpWorkerTask(void *pvParameters) {
     while (true) {
         TaskParams *taskParams = nullptr;
-        
+
         // Block permanently until a task is available in the queue
         if (xQueueReceive(requestQueue, &taskParams, portMAX_DELAY) == pdPASS) {
-            
+
             if (xSemaphoreTake(taskLimitSemaphore, 0) == pdTRUE) {
                 Utils::setBusy(true);
                 uint32_t current = activeRequests.fetch_add(1) + 1;
@@ -142,7 +141,7 @@ void TaskManager::httpWorkerTask(void *pvParameters) {
                     taskParamsCount.fetch_sub(1);
                     removeActiveUrl(url);
                 }
-                
+
                 Utils::setBusy(false);
 #ifdef TASKMANAGER_DEBUG
                 DEBUG_PRINTF("\u2705 Release semaphore\n");
