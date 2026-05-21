@@ -121,7 +121,7 @@ void ScreenManager::setFont(TTF_Font font) {
     }
 
     // Fix 2: Enable glyph cache only for the font we are about to load
-    m_render[(int)font].setCacheSize(8, 8, 4096);
+    m_render[(int) font].setCacheSize(8, 8, 4096);
 
     // Single clean attempt. If it fails, m_curFont stays NONE. drawString() will
     // retry on every subsequent frame until heap pressure subsides.
@@ -133,9 +133,9 @@ void ScreenManager::setFont(TTF_Font font) {
         Log.errorln("setFont(%d) FAILED – clock/widget fonts will not render. "
                     "Largest free DRAM block: %u B, total free: %u B. "
                     "Will retry in drawString().",
-                    (int)font, largest, totalFree);
+                    (int) font, largest, totalFree);
         // Cache is useless if load failed – release it to recover some DRAM
-        m_render[(int)font].setCacheSize(0, 0, 0);
+        m_render[(int) font].setCacheSize(0, 0, 0);
     }
 }
 

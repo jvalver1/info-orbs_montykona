@@ -39,7 +39,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
             // block is below the threshold, skip this attempt entirely to avoid
             // a failed alloc that leaves partial mbedTLS state on the heap.
             size_t largestBefore = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-            size_t freeBefore    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+            size_t freeBefore = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
             Log.noticeln("[HEAP] Before SSL alloc: largest=%u B, free=%u B, url=%s",
                          largestBefore, freeBefore, url.c_str());
 
@@ -53,7 +53,8 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                             largestBefore, SSL_MIN_HEAP);
                 // Queue a -1 response so the widget callback handles it gracefully
                 auto *rd = new (std::nothrow) TaskManager::ResponseData{-1, "", callback, url};
-                if (rd) xQueueSend(TaskManager::responseQueue, &rd, 0);
+                if (rd)
+                    xQueueSend(TaskManager::responseQueue, &rd, 0);
                 TaskManager::activeRequests.fetch_sub(1);
                 CrashTrace::mark("task:http:skipped-low-heap", url);
                 return;
@@ -97,7 +98,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                 // how much DRAM is recovered and how fast fragmentation builds.
                 if (url.startsWith("https://")) {
                     size_t largestAfter = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-                    size_t freeAfter    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+                    size_t freeAfter = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
                     Log.noticeln("[HEAP] After SSL cleanup: largest=%u B, free=%u B",
                                  largestAfter, freeAfter);
                 }
