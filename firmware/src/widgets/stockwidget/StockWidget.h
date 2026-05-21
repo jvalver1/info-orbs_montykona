@@ -14,6 +14,10 @@
 
 #define MAX_STOCKS 15
 
+#ifndef STOCK_REQUEST_QUEUE_DELAY_MS
+    #define STOCK_REQUEST_QUEUE_DELAY_MS 500
+#endif
+
 class StockWidget : public Widget {
 public:
     StockWidget(ScreenManager &manager, ConfigManager &config);

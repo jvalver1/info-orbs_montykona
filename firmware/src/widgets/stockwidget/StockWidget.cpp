@@ -88,20 +88,32 @@ void StockWidget::update(bool force) {
             processResponse(*stock, httpCode, response);
         });
 
-        TaskManager::getInstance()->addTask(std::move(task));
+        if (TaskManager::getInstance()->addTask(std::move(task)) && i < m_stockCount - 1) {
+            vTaskDelay(pdMS_TO_TICKS(STOCK_REQUEST_QUEUE_DELAY_MS));
+        }
     }
 }
 
 void StockWidget::processResponse(StockDataModel &stock, int httpCode, const String &response) {
     CrashTrace::mark("stock:process-response", stock.getSymbol());
     if (httpCode > 0) {
+        JsonDocument filter;
+        filter["close"] = true;
+        filter["percent_change"] = true;
+        filter["change"] = true;
+        filter["fifty_two_week"]["high"] = true;
+        filter["fifty_two_week"]["low"] = true;
+        filter["name"] = true;
+        filter["symbol"] = true;
+        filter["currency"] = true;
+
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, response);
+        DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
 
         if (!error) {
             float currentPrice = doc["close"].as<float>();
             if (currentPrice > 0.0) {
-                stock.setCurrentPrice(doc["close"].as<float>());
+                stock.setCurrentPrice(currentPrice);
                 stock.setPercentChange(doc["percent_change"].as<float>() / 100);
                 stock.setPriceChange(doc["change"].as<float>());
                 stock.setHighPrice(doc["fifty_two_week"]["high"].as<float>());

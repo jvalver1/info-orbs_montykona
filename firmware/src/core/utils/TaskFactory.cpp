@@ -6,6 +6,7 @@
 #include "Utils.h"
 #include <ArduinoLog.h>
 #include <HTTPClient.h>
+#include <utility>
 
 #include <lwip/sockets.h>
 
@@ -16,6 +17,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
     WiFiClient *client = nullptr;
     int httpCode = -1;
     String response;
+    bool isHttps = url.startsWith("https://");
 
     auto applyLinger = [&]() {
         if (client != nullptr) {
@@ -30,8 +32,6 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
     };
 
     try {
-        bool isHttps = url.startsWith("https://");
-
         if (isHttps) {
             // Fix 3 + Diag 2: Check heap fragmentation BEFORE attempting SSL.
             // mbedTLS requires a contiguous DRAM block of ~36-40 KB for the SSL
@@ -46,7 +46,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
             // Fix 3: Guard — need at least 40 KB contiguous DRAM for SSL handshake.
             // Note: with CONFIG_MBEDTLS_SSL_IN/OUT_CONTENT_LEN=4096 the requirement
             // drops to ~12-16 KB; keep the guard conservative at 20 KB to be safe.
-            static const size_t SSL_MIN_HEAP = 20000;
+            static const size_t SSL_MIN_HEAP = 45000;
             if (largestBefore < SSL_MIN_HEAP) {
                 Log.errorln("[HEAP] Skipping HTTPS – largest free block only %u B (need %u B). "
                             "Heap too fragmented for SSL handshake.",
@@ -116,6 +116,10 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
     applyLinger();
     delete client;
 
+    if (isHttps) {
+        vTaskDelay(pdMS_TO_TICKS(1500));
+    }
+
     if (preProcess) {
         CrashTrace::mark("task:http:preprocess", url);
         try {
@@ -128,7 +132,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
     }
 
     CrashTrace::mark("task:http:queue-response", url);
-    auto *responseData = new (std::nothrow) TaskManager::ResponseData{httpCode, response, callback, url};
+    auto *responseData = new (std::nothrow) TaskManager::ResponseData{httpCode, std::move(response), callback, url};
 
     if (responseData == nullptr) {
         Log.errorln("Failed to allocate ResponseData due to heap pressure");

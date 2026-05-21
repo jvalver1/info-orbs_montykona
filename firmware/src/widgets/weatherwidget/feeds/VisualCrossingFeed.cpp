@@ -29,7 +29,7 @@ bool VisualCrossingFeed::getWeatherData(WeatherDataModel &model) {
 
     WeatherDataModel *modelPtr = &model;
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
+        httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); });
 
     if (!task) {
         Log.errorln("Failed to create weather task");
@@ -72,8 +72,19 @@ void VisualCrossingFeed::preProcessResponse(int httpCode, String &response) {
 void VisualCrossingFeed::processResponse(int httpCode, const String &response, WeatherDataModel &model) {
     CrashTrace::mark("weather:visualcrossing:process");
     if (httpCode > 0) {
+        JsonDocument filter;
+        filter["resolvedAddress"] = true;
+        filter["currentConditions"]["temp"] = true;
+        filter["currentConditions"]["icon"] = true;
+        for (int i = 0; i < 4; i++) {
+            filter["days"][i]["description"] = true;
+            filter["days"][i]["icon"] = true;
+            filter["days"][i]["tempmax"] = true;
+            filter["days"][i]["tempmin"] = true;
+        }
+
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, response);
+        DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
 
         if (!error) {
             model.setCityName(doc["resolvedAddress"].as<String>());

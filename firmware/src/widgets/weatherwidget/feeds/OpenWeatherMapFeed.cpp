@@ -29,7 +29,7 @@ bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
 
     WeatherDataModel *modelPtr = &model;
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
+        httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); });
 
     if (!task) {
         Log.errorln("Failed to create weather task");
@@ -77,8 +77,24 @@ void OpenWeatherMapFeed::preProcessResponse(int httpCode, String &response) {
 void OpenWeatherMapFeed::processResponse(int httpCode, const String &response, WeatherDataModel &model) {
     CrashTrace::mark("weather:openweathermap:process");
     if (httpCode > 0) {
+        JsonDocument filter;
+        filter["current"]["dt"] = true;
+        filter["current"]["temp"] = true;
+        filter["current"]["weather"][0]["description"] = true;
+        filter["current"]["weather"][0]["icon"] = true;
+
+        for (int i = 0; i < 4; i++) {
+            filter["daily"][i]["dt"] = true;
+            filter["daily"][i]["summary"] = true;
+            filter["daily"][i]["temp"]["min"] = true;
+            filter["daily"][i]["temp"]["max"] = true;
+            filter["daily"][i]["weather"][0]["main"] = true;
+            filter["daily"][i]["weather"][0]["description"] = true;
+            filter["daily"][i]["weather"][0]["icon"] = true;
+        }
+
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, response);
+        DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
 
         if (!error) {
             // Set city name
