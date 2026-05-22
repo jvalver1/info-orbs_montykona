@@ -9,8 +9,6 @@
 #include "Widget.h"
 #include "config_helper.h"
 
-
-
 #define PARQET_MODE_COUNT 10
 #define PARQET_PERF_COUNT 6
 #define PARQET_PERF_CHART_COUNT 4

@@ -106,7 +106,6 @@ bool TaskManager::isUrlActive(const String &url) {
     return found;
 }
 
-
 bool TaskManager::addTask(std::unique_ptr<Task> task) {
     if (isUrlActive(task->url)) {
         Log.errorln("Duplicate Task. Task already in the queue to waiting to be processed.");
@@ -142,7 +141,7 @@ void TaskManager::httpWorkerTask(void *pvParameters) {
         // reducing the chance of the next SSL handshake failing with -32512.
         size_t freeHeap = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         if (freeHeap < 60000) {
-            Log.warningln("[HEAP] Low internal DRAM (%d B free), pausing HTTP worker 500 ms", (int)freeHeap);
+            Log.warningln("[HEAP] Low internal DRAM (%d B free), pausing HTTP worker 500 ms", (int) freeHeap);
             vTaskDelay(pdMS_TO_TICKS(500));
         }
 

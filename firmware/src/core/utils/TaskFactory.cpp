@@ -6,10 +6,10 @@
 #include "TaskManager.h"
 #include "Utils.h"
 #include <ArduinoLog.h>
-#include <HTTPClient.h>
-#include <utility>
-#include <WiFiClient.h>
 #include <ESP_SSLClient.h>
+#include <HTTPClient.h>
+#include <WiFiClient.h>
+#include <utility>
 
 #include <lwip/sockets.h>
 
@@ -121,7 +121,7 @@ public:
     }
     operator bool() override {
         syncWriteError();
-        bool ret = (bool)m_sslClient;
+        bool ret = (bool) m_sslClient;
         syncWriteError();
         return ret;
     }
@@ -136,7 +136,7 @@ public:
         return m_sslClient.getLastSSLError(dest, len);
     }
     int fd() const {
-        return const_cast<WiFiClient&>(m_baseClient).fd();
+        return const_cast<WiFiClient &>(m_baseClient).fd();
     }
 };
 
@@ -176,13 +176,13 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
             size_t largestBefore = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
             size_t freeBefore = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
             Log.noticeln("[HEAP] Before SSL alloc: largest=%d B, free=%d B, url=%s",
-                         (int)largestBefore, (int)freeBefore, url.c_str());
+                         (int) largestBefore, (int) freeBefore, url.c_str());
 
             static const size_t SSL_MIN_HEAP = 15000;
             if (largestBefore < SSL_MIN_HEAP) {
                 Log.errorln("[HEAP] Skipping HTTPS – largest free block only %d B (need %d B). "
                             "Heap too fragmented for SSL handshake.",
-                            (int)largestBefore, (int)SSL_MIN_HEAP);
+                            (int) largestBefore, (int) SSL_MIN_HEAP);
                 // Queue a -1 response so the widget callback handles it gracefully
                 auto *rd = new (std::nothrow) TaskManager::ResponseData{-1, "", callback, url};
                 if (rd)
@@ -245,7 +245,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                     // Phase 1 Diag: snapshot after getString(). The difference from
                     // pre-getString tells us the actual response body allocation cost.
                     char snapLabel[48];
-                    snprintf(snapLabel, sizeof(snapLabel), "http:post-getString(%d B)", (int)response.length());
+                    snprintf(snapLabel, sizeof(snapLabel), "http:post-getString(%d B)", (int) response.length());
                     HEAP_SNAP(snapLabel);
 
                 } else {
@@ -266,7 +266,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                     size_t largestAfter = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
                     size_t freeAfter = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
                     Log.noticeln("[HEAP] After SSL cleanup: largest=%d B, free=%d B",
-                                 (int)largestAfter, (int)freeAfter);
+                                 (int) largestAfter, (int) freeAfter);
                 }
             } else {
                 Log.errorln("HTTP begin failed for %s", url.c_str());

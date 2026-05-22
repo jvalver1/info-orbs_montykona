@@ -5,28 +5,28 @@
 
 #if defined(MEMORY_DEBUG_INTERVAL) && (WIDGET_DEBUG_LEVEL > WIDGET_LOG_LEVEL_SILENT)
     // Rate-limited periodic dump (used in loop())
-    #define SHOW_MEMORY_USAGE(msg)               \
-        do {                                     \
-            if (isDebugEnabled_global()) {       \
-                DEBUG_PRINT(" --- ");            \
-                DEBUG_PRINTLN(msg);              \
+    #define SHOW_MEMORY_USAGE(msg)                   \
+        do {                                         \
+            if (isDebugEnabled_global()) {           \
+                DEBUG_PRINT(" --- ");                \
+                DEBUG_PRINTLN(msg);                  \
                 ShowMemoryUsage::printSerial(false); \
-                DEBUG_PRINTLN();                 \
-            }                                    \
+                DEBUG_PRINTLN();                     \
+            }                                        \
         } while (0)
 
     // Always-on labeled snapshot — use this at specific instrumentation points.
     // Prints immediately regardless of the rate-limit timer.
     // Format: [HEAP] <label> | free=<n> largest=<n> frag=<n>% blocks=<free>/<total> minFree=<n>
-    #define HEAP_SNAP(label)                     \
-        do {                                     \
-            if (isDebugEnabled_global()) {       \
+    #define HEAP_SNAP(label)                           \
+        do {                                           \
+            if (isDebugEnabled_global()) {             \
                 ShowMemoryUsage::printDetailed(label); \
-            }                                    \
+            }                                          \
         } while (0)
 #else
     #define SHOW_MEMORY_USAGE(msg) // No-op
-    #define HEAP_SNAP(label)       // No-op
+    #define HEAP_SNAP(label) // No-op
 #endif
 
 class ShowMemoryUsage {

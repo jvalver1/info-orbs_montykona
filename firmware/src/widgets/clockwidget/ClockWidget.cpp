@@ -217,7 +217,7 @@ bool ClockWidget::isValidClockType(int clockType) {
         int customClockNumber = clockType - (int) ClockType::CUSTOM0;
         bool isValid = USE_CLOCK_CUSTOM > customClockNumber && m_customEnabled[customClockNumber];
         WIDGET_LOG_TRACE(WIDGET_PREFIX, "Checking CustomClock%d: USE_CLOCK_CUSTOM=%d, enabled=%d, valid=%d",
-                     customClockNumber, USE_CLOCK_CUSTOM, m_customEnabled[customClockNumber], isValid);
+                         customClockNumber, USE_CLOCK_CUSTOM, m_customEnabled[customClockNumber], isValid);
         return isValid;
     } else
         return false;

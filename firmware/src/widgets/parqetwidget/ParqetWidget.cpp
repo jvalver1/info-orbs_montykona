@@ -170,7 +170,7 @@ void ParqetWidget::updatePortfolio() {
 
 void ParqetWidget::processResponse(int httpCode, const String &response) {
     WIDGET_HEAP_SNAP(WIDGET_PREFIX, "processResponse_start");
-    WIDGET_LOG_TRACE(WIDGET_PREFIX, "HTTP %d, Size %d", httpCode, (int)response.length());
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "HTTP %d, Size %d", httpCode, (int) response.length());
 
     // Check for the returning code
     if (httpCode == 200) {

@@ -224,8 +224,7 @@ static time_t tmToSeconds(const struct tm *tm) {
     int day = tm->tm_mday - 1; // 0-based
 
     static const int days_before_month[] = {
-        0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
-    };
+        0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 
     int y = year - 1970;
     int leap_days = (y + 1) / 4 - (y + 69) / 100 + (y + 369) / 400;
@@ -249,7 +248,7 @@ int GlobalTime::calculateActiveTimezoneOffset(time_t utcEpoch) {
 
     struct tm tmLocal;
     localtime_r(&utcEpoch, &tmLocal);
-    int offset = (int)(tmToSeconds(&tmLocal) - utcEpoch);
+    int offset = (int) (tmToSeconds(&tmLocal) - utcEpoch);
 
     if (s_tzMutex) {
         xSemaphoreGiveRecursive(s_tzMutex);

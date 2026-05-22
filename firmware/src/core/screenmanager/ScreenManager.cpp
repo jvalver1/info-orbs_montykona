@@ -66,7 +66,7 @@ bool ScreenManager::tryLoadFont(TTF_Font font) {
     try {
         // Snapshot pre-load heap state
         char snapLabel[32];
-        snprintf(snapLabel, sizeof(snapLabel), "loadFont:pre:%d", (int)font);
+        snprintf(snapLabel, sizeof(snapLabel), "loadFont:pre:%d", (int) font);
         HEAP_SNAP(snapLabel);
 
         // Unload the current font if there is one
@@ -96,7 +96,7 @@ bool ScreenManager::tryLoadFont(TTF_Font font) {
             break;
         }
 
-        snprintf(snapLabel, sizeof(snapLabel), "loadFont:post:%d:%s", (int)font, error == 0 ? "OK" : "FAIL");
+        snprintf(snapLabel, sizeof(snapLabel), "loadFont:post:%d:%s", (int) font, error == 0 ? "OK" : "FAIL");
         HEAP_SNAP(snapLabel);
 
         if (error == 0) {
@@ -283,7 +283,7 @@ void ScreenManager::drawString(const String &text, int x, int y, unsigned int fo
         uint32_t textHash = 2166136261U;
         const char *p = text.c_str();
         while (*p) {
-            textHash ^= (uint32_t)(unsigned char)*p++;
+            textHash ^= (uint32_t) (unsigned char) *p++;
             textHash *= 16777619U;
         }
 
@@ -311,7 +311,7 @@ void ScreenManager::drawString(const String &text, int x, int y, unsigned int fo
         if (!found) {
             FT_BBox box = m_render.calculateBoundingBox(0, 0, fontSize, Align::TopLeft, Layout::Horizontal, text.c_str());
             yMin = box.yMin;
-            cache[cacheIndex] = { m_curFont, fontSize, textHash, yMin };
+            cache[cacheIndex] = {m_curFont, fontSize, textHash, yMin};
             cacheIndex = (cacheIndex + 1) % CACHE_SIZE;
             if (cacheCount < CACHE_SIZE) {
                 cacheCount++;

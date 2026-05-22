@@ -382,7 +382,7 @@ This means a transient font-load failure results in **at most one blank frame** 
 
 ### Environment-Switching Timezone Offset Memory Leak
 
-**Problem:** Over a 15-minute runtime, the free heap and largest contiguous memory block steadily declined. This was caused by a memory leak of ~44 bytes per second. 
+**Problem:** Over a 15-minute runtime, the free heap and largest contiguous memory block steadily declined. This was caused by a memory leak of ~44 bytes per second.
 - The root cause was `GlobalTime::calculateActiveTimezoneOffset()`, which was invoked once per second in the main loop.
 - To compute the local time zone offset, it changed the global environment variable `TZ` by calling `setenv("TZ", "UTC0", 1)` and then restored it via `setenv("TZ", savedTz, 1)`.
 - Under the `newlib` C library used by ESP-IDF, calling `setenv` with changing string lengths leaks memory because it dynamically reallocates new entries in the environment array but does not reclaim old ones.
