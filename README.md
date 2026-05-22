@@ -2,7 +2,7 @@
 
 **Info Orbs** is a premium, open-source multi-display desk accessory powered by an ESP32. It features five round GC9A01 displays to show real-time weather, stocks, clocks, and custom data with a sleek, interactive interface.
 
-![Info Orbs Preview](references/weather.png)
+![Info Orbs Preview](Info-orbs.jpeg)
 
 ## 🚀 Key Features
 
