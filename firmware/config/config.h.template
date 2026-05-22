@@ -40,6 +40,9 @@
 // LOG_LEVEL_WARNING, LOG_LEVEL_INFO, LOG_LEVEL_TRACE, LOG_LEVEL_VERBOSE (NOTICE is the same as INFO, it's kept for backward compatability)
 // #define LOG_LEVEL LOG_LEVEL_INFO
 
+// Set debug output level for all widgets: WIDGET_LOG_LEVEL_SILENT, WIDGET_LOG_LEVEL_ERROR, WIDGET_LOG_LEVEL_WARN, WIDGET_LOG_LEVEL_INFO, WIDGET_LOG_LEVEL_TRACE
+#define WIDGET_DEBUG_LEVEL WIDGET_LOG_LEVEL_SILENT
+
 // Include current time in all log output
 // #define LOG_TIMESTAMP
 

@@ -4,6 +4,9 @@
 #include "GlobalTime.h"
 #include "TaskFactory.h"
 #include "config_helper.h"
+#include "DebugHelper.h"
+
+#define WIDGET_PREFIX "[Weather]"
 
 TempestFeed::TempestFeed(const String &apiKey, int units)
     : apiKey(apiKey), m_units(units) {}
@@ -15,8 +18,8 @@ void TempestFeed::setupConfig(ConfigManager &config) {
 }
 
 bool TempestFeed::getWeatherData(WeatherDataModel &model) {
-
-    Log.traceln("TempestFeed: Fetching weather data for stationId=%s, stationName=%s", m_stationId.c_str(), m_stationName.c_str());
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-fetch");
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Fetching weather data for stationId=%s, stationName=%s", m_stationId.c_str(), m_stationName.c_str());
 
     String lang = I18n::getLanguageString();
 
@@ -30,13 +33,13 @@ bool TempestFeed::getWeatherData(WeatherDataModel &model) {
         httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); });
 
     if (!task) {
-        Log.errorln("Failed to create weather task");
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to create weather task");
         return false;
     }
 
     bool success = TaskManager::getInstance()->addTask(std::move(task));
     if (!success) {
-        Log.errorln("Failed to add weather task");
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to add weather task");
     }
 
     return success;
@@ -61,7 +64,7 @@ void TempestFeed::preProcessResponse(int httpCode, String &response) {
             response = doc.as<String>();
         } else {
             // Handle JSON deserialization error
-            Log.errorln("Deserialization failed: %s", error.c_str());
+            WIDGET_LOG_ERROR(WIDGET_PREFIX, "Deserialization failed: %s", error.c_str());
         }
     }
 }
@@ -79,8 +82,10 @@ void TempestFeed::processResponse(int httpCode, const String &response, WeatherD
             filter["forecast"]["daily"][i]["icon"] = true;
         }
 
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-deserialization");
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "post-deserialization");
 
         if (!error) {
             model.setCityName(String(m_stationName.c_str())); // Convert std::string to String
@@ -97,10 +102,10 @@ void TempestFeed::processResponse(int httpCode, const String &response, WeatherD
             }
         } else {
             // Handle JSON deserialization error
-            Log.errorln("Deserialization failed: %s", error.c_str());
+            WIDGET_LOG_ERROR(WIDGET_PREFIX, "Deserialization failed: %s", error.c_str());
         }
     } else {
-        Log.errorln("HTTP request failed, error code: %d\n", httpCode);
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "HTTP request failed, error code: %d", httpCode);
     }
 }
 

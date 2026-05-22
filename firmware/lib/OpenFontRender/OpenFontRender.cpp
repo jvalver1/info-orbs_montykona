@@ -10,6 +10,25 @@
 
 #include "OpenFontRender.h"
 
+// Optional heap snapshots around drawHString(). They are intentionally compiled
+// only for trace-level builds because this path is extremely chatty.
+#include <ArduinoLog.h>
+#if defined(MEMORY_DEBUG_INTERVAL) && defined(LOG_LEVEL) && (LOG_LEVEL >= LOG_LEVEL_TRACE)
+    #include <esp_heap_caps.h>
+    // Lightweight inline snapshot — does NOT use ShowMemoryUsage to avoid a
+    // circular dependency (this is a library, not application code).
+    // ArduinoLog only supports single-char format specifiers — no %u or width mods.
+    static inline void _ofrHeapSnap(const char *label) {
+        size_t free    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        uint8_t frag   = (free > 0) ? (uint8_t)(100u - (largest * 100u / free)) : 100u;
+        Log.traceln("[OFR ] %s | free=%d  largest=%d  frag=%d%%", label, (int)free, (int)largest, (int)frag);
+    }
+    #define OFR_HEAP_SNAP(label) _ofrHeapSnap(label)
+#else
+    #define OFR_HEAP_SNAP(label)
+#endif
+
 /*_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/*/
 //
 //  Data Structure Definition
@@ -491,6 +510,10 @@ uint16_t OpenFontRender::drawHString(const char *str,
                                      FT_BBox &abbox,
                                      FT_Error &error) {
 
+    // Phase 1 Diag: capture heap before the two std::vector allocations inside
+    // this function (unicode_q and rendering_unicode_q). Log the drawing mode
+    // so we can distinguish actual render calls from calculateBoundingBox() probes.
+    OFR_HEAP_SNAP(drawing == Drawing::Execute ? "drawHString:pre:EXEC" : "drawHString:pre:SKIP");
 	uint16_t written_char_num    = 0;
 	Cursor initial_position      = {x, y};
 	Cursor current_line_position = {x, y};
@@ -508,7 +531,8 @@ uint16_t OpenFontRender::drawHString(const char *str,
 
 	// decode UTF8
 	uint16_t unicode = '\0';
-	std::vector<FT_UInt32> unicode_q;
+	static std::vector<FT_UInt32> unicode_q;
+	unicode_q.clear();
 	{
 		uint16_t len = (uint16_t)strlen(str);
         unicode_q.reserve(len);
@@ -543,7 +567,8 @@ uint16_t OpenFontRender::drawHString(const char *str,
 	while (unicode_q_idx < unicode_q.size()) {
 		FT_Vector offset       = {0, 0};
 		FT_Vector bearing_left = {0, 0};
-		std::vector<FT_UInt32> rendering_unicode_q;
+		static std::vector<FT_UInt32> rendering_unicode_q;
+		rendering_unicode_q.clear();
         rendering_unicode_q.reserve(unicode_q.size() - unicode_q_idx);
 		FT_BBox bbox;
 		bbox.xMin = bbox.yMin = LONG_MAX;
@@ -818,6 +843,12 @@ uint16_t OpenFontRender::drawHString(const char *str,
 	}
 
 	_text.cursor = {x, y};
+
+	// Phase 1 Diag: capture heap after the std::vector objects go out of scope
+	// and are destroyed. The difference from drawHString:pre shows the net heap
+	// impact of each render call (ideally zero — but fragmentation may cause drift).
+	OFR_HEAP_SNAP(drawing == Drawing::Execute ? "drawHString:post:EXEC" : "drawHString:post:SKIP");
+
 	return written_char_num;
 }
 

@@ -2,18 +2,150 @@
 #include "CrashTrace.h"
 #include "DebugHelper.h"
 #include "GlobalResources.h"
+#include "ShowMemoryUsage.h"
 #include "TaskManager.h"
 #include "Utils.h"
 #include <ArduinoLog.h>
 #include <HTTPClient.h>
 #include <utility>
+#include <WiFiClient.h>
+#include <ESP_SSLClient.h>
 
 #include <lwip/sockets.h>
+
+class ESP_SSLClientWrapper : public WiFiClient {
+private:
+    WiFiClient m_baseClient;
+    ESP_SSLClient m_sslClient;
+    int m_lastSyncedError = 0;
+
+    void syncWriteError() {
+        int sslErr = m_sslClient.getWriteError();
+        int wrapperErr = getWriteError();
+        if (wrapperErr == 0 && m_lastSyncedError != 0) {
+            m_sslClient.clearWriteError();
+            m_lastSyncedError = 0;
+        } else if (sslErr != 0) {
+            setWriteError(sslErr);
+            m_lastSyncedError = sslErr;
+        } else if (sslErr == 0 && wrapperErr != 0) {
+            setWriteError(0);
+            m_lastSyncedError = 0;
+        }
+    }
+
+public:
+    ESP_SSLClientWrapper() : m_lastSyncedError(0) {
+        m_sslClient.setClient(&m_baseClient);
+        m_sslClient.setBufferSizes(5120, 1024);
+        m_sslClient.setInsecure();
+        m_sslClient.setDebugLevel(isDebugEnabled_global() && LOG_LEVEL >= LOG_LEVEL_INFO ? esp_ssl_debug_info : esp_ssl_debug_none);
+    }
+
+    int connect(IPAddress ip, uint16_t port) override {
+        syncWriteError();
+        int ret = m_sslClient.connect(ip, port);
+        syncWriteError();
+        return ret;
+    }
+    int connect(const char *host, uint16_t port) override {
+        syncWriteError();
+        int ret = m_sslClient.connect(host, port);
+        syncWriteError();
+        return ret;
+    }
+    int connect(IPAddress ip, uint16_t port, int32_t timeout) override {
+        syncWriteError();
+        int ret = m_sslClient.connect(ip, port, timeout);
+        syncWriteError();
+        return ret;
+    }
+    int connect(const char *host, uint16_t port, int32_t timeout) override {
+        syncWriteError();
+        int ret = m_sslClient.connect(host, port, timeout);
+        syncWriteError();
+        return ret;
+    }
+    size_t write(uint8_t b) override {
+        syncWriteError();
+        size_t ret = m_sslClient.write(b);
+        syncWriteError();
+        return ret;
+    }
+    size_t write(const uint8_t *buf, size_t size) override {
+        syncWriteError();
+        size_t ret = m_sslClient.write(buf, size);
+        syncWriteError();
+        return ret;
+    }
+    int available() override {
+        syncWriteError();
+        int ret = m_sslClient.available();
+        syncWriteError();
+        return ret;
+    }
+    int read() override {
+        syncWriteError();
+        int ret = m_sslClient.read();
+        syncWriteError();
+        return ret;
+    }
+    int read(uint8_t *buf, size_t size) override {
+        syncWriteError();
+        int ret = m_sslClient.read(buf, size);
+        syncWriteError();
+        return ret;
+    }
+    int peek() override {
+        syncWriteError();
+        int ret = m_sslClient.peek();
+        syncWriteError();
+        return ret;
+    }
+    void flush() override {
+        syncWriteError();
+        m_sslClient.flush();
+        syncWriteError();
+    }
+    void stop() override {
+        syncWriteError();
+        m_sslClient.stop();
+        m_baseClient.stop();
+        syncWriteError();
+    }
+    uint8_t connected() override {
+        syncWriteError();
+        uint8_t ret = m_sslClient.connected();
+        syncWriteError();
+        return ret;
+    }
+    operator bool() override {
+        syncWriteError();
+        bool ret = (bool)m_sslClient;
+        syncWriteError();
+        return ret;
+    }
+    int setTimeout(uint32_t seconds) override {
+        syncWriteError();
+        m_baseClient.setTimeout(seconds);
+        int ret = m_sslClient.setTimeout(seconds);
+        syncWriteError();
+        return ret;
+    }
+    int getLastSSLError(char *dest = nullptr, size_t len = 0) {
+        return m_sslClient.getLastSSLError(dest, len);
+    }
+    int fd() const {
+        return const_cast<WiFiClient&>(m_baseClient).fd();
+    }
+};
 
 void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback, Task::PreProcessCallback preProcess) {
     CrashTrace::mark("task:http:start", url);
     DEBUG_PRINTF("Starting HTTP request for: %s\n", url.c_str());
 
+    WiFiClient *baseClient = nullptr;
+    ESP_SSLClientWrapper *sslClient = nullptr;
     WiFiClient *client = nullptr;
     int httpCode = -1;
     String response;
@@ -21,7 +153,12 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
 
     auto applyLinger = [&]() {
         if (client != nullptr) {
-            int sock_fd = client->fd();
+            int sock_fd = -1;
+            if (isHttps && sslClient != nullptr) {
+                sock_fd = sslClient->fd();
+            } else if (baseClient != nullptr) {
+                sock_fd = baseClient->fd();
+            }
             if (sock_fd >= 0) {
                 struct linger sl;
                 sl.l_onoff = 1;
@@ -33,24 +170,19 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
 
     try {
         if (isHttps) {
-            // Fix 3 + Diag 2: Check heap fragmentation BEFORE attempting SSL.
-            // mbedTLS requires a contiguous DRAM block of ~36-40 KB for the SSL
-            // context, I/O buffers, and certificate chain. If the largest free
-            // block is below the threshold, skip this attempt entirely to avoid
-            // a failed alloc that leaves partial mbedTLS state on the heap.
+            // Check heap fragmentation BEFORE attempting SSL.
+            // BearSSL wrapped client uses ~6-7 KB buffer space + ~10 KB context overhead.
+            // A largest contiguous free block of 15 KB is comfortable.
             size_t largestBefore = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
             size_t freeBefore = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-            Log.noticeln("[HEAP] Before SSL alloc: largest=%u B, free=%u B, url=%s",
-                         largestBefore, freeBefore, url.c_str());
+            Log.noticeln("[HEAP] Before SSL alloc: largest=%d B, free=%d B, url=%s",
+                         (int)largestBefore, (int)freeBefore, url.c_str());
 
-            // Fix 3: Guard — need at least 40 KB contiguous DRAM for SSL handshake.
-            // Note: with CONFIG_MBEDTLS_SSL_IN/OUT_CONTENT_LEN=4096 the requirement
-            // drops to ~12-16 KB; keep the guard conservative at 20 KB to be safe.
-            static const size_t SSL_MIN_HEAP = 45000;
+            static const size_t SSL_MIN_HEAP = 15000;
             if (largestBefore < SSL_MIN_HEAP) {
-                Log.errorln("[HEAP] Skipping HTTPS – largest free block only %u B (need %u B). "
+                Log.errorln("[HEAP] Skipping HTTPS – largest free block only %d B (need %d B). "
                             "Heap too fragmented for SSL handshake.",
-                            largestBefore, SSL_MIN_HEAP);
+                            (int)largestBefore, (int)SSL_MIN_HEAP);
                 // Queue a -1 response so the widget callback handles it gracefully
                 auto *rd = new (std::nothrow) TaskManager::ResponseData{-1, "", callback, url};
                 if (rd)
@@ -60,16 +192,23 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                 return;
             }
 
-            client = new (std::nothrow) WiFiClientSecure();
-            if (client == nullptr) {
-                Log.errorln("Failed to allocate WiFiClientSecure due to heap pressure");
+            HEAP_SNAP("ssl:pre-new-client");
+
+            sslClient = new (std::nothrow) ESP_SSLClientWrapper();
+            if (sslClient == nullptr) {
+                Log.errorln("Failed to allocate ESP_SSLClientWrapper due to heap pressure");
             } else {
-                static_cast<WiFiClientSecure *>(client)->setInsecure();
+                client = sslClient;
             }
+
+            HEAP_SNAP("ssl:post-new-client");
+
         } else {
-            client = new (std::nothrow) WiFiClient();
-            if (client == nullptr) {
+            baseClient = new (std::nothrow) WiFiClient();
+            if (baseClient == nullptr) {
                 Log.errorln("Failed to allocate WiFiClient due to heap pressure");
+            } else {
+                client = baseClient;
             }
         }
 
@@ -77,7 +216,16 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
             HTTPClient http;
             if (http.begin(*client, url)) {
                 http.setTimeout(10000);
+
+                // Phase 1 Diag: snapshot before http.GET() — the handshake + TLS
+                // record exchange happens inside GET(), consuming significant DRAM.
+                HEAP_SNAP("http:pre-GET");
+
                 httpCode = http.GET();
+
+                // Phase 1 Diag: snapshot after GET() but before reading the body.
+                // This reveals the peak SSL + receive-buffer cost during the handshake.
+                HEAP_SNAP("http:post-GET");
 
                 if (httpCode > 0) {
                     // Fix 5: Pre-reserve the response String from the Content-Length
@@ -87,9 +235,27 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                     if (contentLength > 0) {
                         response.reserve(contentLength + 1);
                     }
+
+                    // Phase 1 Diag: snapshot before getString() — the response body
+                    // is buffered here, potentially allocating 2-10 KB for JSON payload.
+                    HEAP_SNAP("http:pre-getString");
+
                     response = http.getString();
+
+                    // Phase 1 Diag: snapshot after getString(). The difference from
+                    // pre-getString tells us the actual response body allocation cost.
+                    char snapLabel[48];
+                    snprintf(snapLabel, sizeof(snapLabel), "http:post-getString(%d B)", (int)response.length());
+                    HEAP_SNAP(snapLabel);
+
                 } else {
-                    Log.errorln("HTTP request failed, error code: %d", httpCode);
+                    if (isHttps && sslClient != nullptr) {
+                        char sslErrBuf[128];
+                        int sslErrCode = sslClient->getLastSSLError(sslErrBuf, sizeof(sslErrBuf));
+                        Log.errorln("HTTP request failed, error code: %d. SSL Error: %d - %s", httpCode, sslErrCode, sslErrBuf);
+                    } else {
+                        Log.errorln("HTTP request failed, error code: %d", httpCode);
+                    }
                 }
                 applyLinger();
                 http.end();
@@ -99,8 +265,8 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
                 if (url.startsWith("https://")) {
                     size_t largestAfter = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
                     size_t freeAfter = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-                    Log.noticeln("[HEAP] After SSL cleanup: largest=%u B, free=%u B",
-                                 largestAfter, freeAfter);
+                    Log.noticeln("[HEAP] After SSL cleanup: largest=%d B, free=%d B",
+                                 (int)largestAfter, (int)freeAfter);
                 }
             } else {
                 Log.errorln("HTTP begin failed for %s", url.c_str());
@@ -115,10 +281,22 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
     }
 
     applyLinger();
-    delete client;
+
+    // Phase 1 Diag: snapshot before delete client.
+    HEAP_SNAP("http:pre-delete-client");
+    delete sslClient;
+    delete baseClient;
+    client = nullptr;
+    baseClient = nullptr;
+    sslClient = nullptr;
+    HEAP_SNAP("http:post-delete-client");
 
     if (isHttps) {
+        // Phase 1 Diag: snapshot after the post-SSL coalescing delay.
+        // A good result: largest free block should recover close to its pre-SSL value.
+        // A bad result: it stays fragmented — that is the key diagnostic signal.
         vTaskDelay(pdMS_TO_TICKS(1500));
+        HEAP_SNAP("http:post-ssl-delay(1500ms)");
     }
 
     if (preProcess) {
@@ -148,7 +326,7 @@ void TaskFactory::httpGetTask(const String &url, Task::ResponseCallback callback
     CrashTrace::mark("task:http:done", url);
 
 #ifdef TASKMANAGER_DEBUG
-    Log.noticeln("Active requests now: %d", TaskManager::activeRequests);
+    Log.noticeln("Active requests now: %d", TaskManager::activeRequests.load());
     UBaseType_t highWater = uxTaskGetStackHighWaterMark(NULL);
     Log.noticeln("Remaining task stack space: %d", highWater);
 #endif

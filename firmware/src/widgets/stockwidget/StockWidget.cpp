@@ -4,8 +4,9 @@
 #include "StockTranslations.h"
 #include "TaskFactory.h"
 #include <ArduinoJson.h>
-#include <ArduinoLog.h>
 #include <iomanip>
+
+#define WIDGET_PREFIX "[Stock]"
 
 StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
     : Widget(manager, config),
@@ -27,7 +28,7 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
     m_stockCount = 0;
     while (symbol != nullptr) {
         if (m_stockCount >= MAX_STOCKS) {
-            Log.warningln("MAX STOCKS UNABLE TO ADD MORE");
+            WIDGET_LOG_WARN(WIDGET_PREFIX, "MAX STOCKS UNABLE TO ADD MORE");
             break;
         }
         StockDataModel stockModel = StockDataModel();
@@ -38,16 +39,17 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
     }
     delete[] stockList;
     m_pageCount = 1 + ((m_stockCount - 1) / NUM_SCREENS); // int division round up
-    DEBUG_PRINTF("StockWidget initialized\n");
-    DEBUG_PRINTF("StockWidget Pages: %d across %d symbools.\n", m_pageCount, m_stockCount);
+    WIDGET_LOG_INFO(WIDGET_PREFIX, "StockWidget initialized");
+    WIDGET_LOG_INFO(WIDGET_PREFIX, "StockWidget Pages: %d across %d symbols", m_pageCount, m_stockCount);
 }
 
 void StockWidget::setup() {
     if (m_stockCount == 0) {
-        Log.warningln("No stock tickers available");
+        WIDGET_LOG_WARN(WIDGET_PREFIX, "No stock tickers available");
         return;
     }
     m_prevMillisSwitch = millis();
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "after_init");
 }
 
 void StockWidget::draw(bool force) {
@@ -60,7 +62,7 @@ void StockWidget::draw(bool force) {
             m_manager.setFontColor(TFT_WHITE, TFT_BLACK);
             m_manager.drawCentreString(I18n::get(t_loadingData), ScreenCenterX, ScreenCenterY, 16);
         } else if ((m_stocks[i].isChanged() || force) && !m_stocks[i].getSymbol().isEmpty()) {
-            DEBUG_PRINTF("StockWidget::draw - %s\n", m_stocks[i].getSymbol().c_str());
+            WIDGET_LOG_TRACE(WIDGET_PREFIX, "StockWidget::draw - %s", m_stocks[i].getSymbol().c_str());
             displayStock(displayIndex, m_stocks[i], TFT_WHITE, TFT_BLACK);
             m_stocks[i].setChangedStatus(false);
             m_stocks[i].setInitializationStatus(true);
@@ -76,10 +78,10 @@ void StockWidget::draw(bool force) {
 }
 
 void StockWidget::update(bool force) {
-
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre_update_fetches");
     // Queue requests for each stock
     for (int8_t i = 0; i < m_stockCount; i++) {
-        DEBUG_PRINTF("StockWidget::update - %s\n", m_stocks[i].getSymbol().c_str());
+        WIDGET_LOG_TRACE(WIDGET_PREFIX, "StockWidget::update - %s", m_stocks[i].getSymbol().c_str());
         String url = "https://api.twelvedata.com/quote?apikey=e03fc53524454ab8b65d91b23c669cc5&symbol=" + m_stocks[i].getSymbol();
 
         StockDataModel *stock = &m_stocks[i];
@@ -92,6 +94,7 @@ void StockWidget::update(bool force) {
             vTaskDelay(pdMS_TO_TICKS(STOCK_REQUEST_QUEUE_DELAY_MS));
         }
     }
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "post_update_fetches");
 }
 
 void StockWidget::processResponse(StockDataModel &stock, int httpCode, const String &response) {
@@ -107,8 +110,10 @@ void StockWidget::processResponse(StockDataModel &stock, int httpCode, const Str
         filter["symbol"] = true;
         filter["currency"] = true;
 
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-deserialization");
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "post-deserialization");
 
         if (!error) {
             float currentPrice = doc["close"].as<float>();
@@ -122,13 +127,13 @@ void StockWidget::processResponse(StockDataModel &stock, int httpCode, const Str
                 stock.setTicker(doc["symbol"].as<String>());
                 stock.setCurrencySymbol(doc["currency"].as<String>());
             } else {
-                Log.warningln("skipping invalid data for: %s", stock.getSymbol().c_str());
+                WIDGET_LOG_WARN(WIDGET_PREFIX, "skipping invalid data for: %s", stock.getSymbol().c_str());
             }
         } else {
-            Log.errorln("deserializeJson() failed");
+            WIDGET_LOG_ERROR(WIDGET_PREFIX, "deserializeJson() failed: %s", error.c_str());
         }
     } else {
-        Log.errorln("HTTP request failed, error: %d\n", httpCode);
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "HTTP request failed, error: %d", httpCode);
     }
 }
 
@@ -144,7 +149,7 @@ void StockWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
 }
 
 void StockWidget::displayStock(int8_t displayIndex, StockDataModel &stock, uint32_t backgroundColor, uint32_t textColor) {
-    DEBUG_PRINTF("displayStock - %s ~ %s\n", stock.getSymbol().c_str(), stock.getCurrentPrice(2).c_str());
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "displayStock - %s ~ %s", stock.getSymbol().c_str(), stock.getCurrentPrice(2).c_str());
     if (stock.getCurrentPrice() == 0.0) {
         // There isn't any data to display yet
         return;
@@ -198,7 +203,7 @@ void StockWidget::nextPage() {
     // Reset the timer for the next page if we just switched manually
     m_prevMillisSwitch = millis();
     m_page = (m_page + 1) % m_pageCount;
-    DEBUG_PRINTF("StockWidget Page: %d\n", m_page + 1);
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "StockWidget Page: %d", m_page + 1);
     draw(true);
 }
 

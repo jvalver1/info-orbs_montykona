@@ -4,7 +4,10 @@
 #include "GlobalTime.h"
 #include "TaskFactory.h"
 #include "config_helper.h"
+#include "DebugHelper.h"
 #include <unordered_map>
+
+#define WIDGET_PREFIX "[Weather]"
 
 OpenWeatherMapFeed::OpenWeatherMapFeed(const String &apiKey, int units)
     : apiKey(apiKey), m_weatherUnits(units) {}
@@ -17,6 +20,7 @@ void OpenWeatherMapFeed::setupConfig(ConfigManager &config) {
 }
 
 bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-fetch");
     String weatherUnits = m_weatherUnits == 0 ? "metric" : "imperial";
     String lang = I18n::getLanguageString();
     if (lang != "en" && lang != "de" && lang != "fr") {
@@ -32,13 +36,13 @@ bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
         httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); });
 
     if (!task) {
-        Log.errorln("Failed to create weather task");
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to create weather task");
         return false;
     }
 
     bool success = TaskManager::getInstance()->addTask(std::move(task));
     if (!success) {
-        Log.errorln("Failed to add weather task");
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to add weather task");
     }
 
     return success;
@@ -69,7 +73,7 @@ void OpenWeatherMapFeed::preProcessResponse(int httpCode, String &response) {
             response = doc.as<String>();
         } else {
             // Handle JSON deserialization error
-            Log.errorln("Deserialization failed: %s", error.c_str());
+            WIDGET_LOG_ERROR(WIDGET_PREFIX, "Deserialization failed: %s", error.c_str());
         }
     }
 }
@@ -93,8 +97,10 @@ void OpenWeatherMapFeed::processResponse(int httpCode, const String &response, W
             filter["daily"][i]["weather"][0]["icon"] = true;
         }
 
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-deserialization");
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "post-deserialization");
 
         if (!error) {
             // Set city name
@@ -107,7 +113,7 @@ void OpenWeatherMapFeed::processResponse(int httpCode, const String &response, W
             model.setTodayHigh(doc["daily"][0]["temp"]["max"].as<float>());
             model.setTodayLow(doc["daily"][0]["temp"]["min"].as<float>());
 
-            Log.traceln("Weather data: %s", response.c_str());
+            WIDGET_LOG_TRACE(WIDGET_PREFIX, "Weather data: %s", response.c_str());
             for (int i = 1; i < 4; i++) {
                 model.setDayIcon(i - 1, translateIcon(doc["daily"][i]["weather"][0]["icon"]));
                 model.setDayHigh(i - 1, doc["daily"][i]["temp"]["max"].as<float>());
@@ -116,10 +122,10 @@ void OpenWeatherMapFeed::processResponse(int httpCode, const String &response, W
 
         } else {
             // Handle JSON deserialization error
-            Log.errorln("Deserialization failed: %s", error.c_str());
+            WIDGET_LOG_ERROR(WIDGET_PREFIX, "Deserialization failed: %s", error.c_str());
         }
     } else {
-        Log.errorln("HTTP request failed, error code: %d\n", httpCode);
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "HTTP request failed, error code: %d", httpCode);
     }
 }
 String OpenWeatherMapFeed::translateIcon(const std::string &icon) {

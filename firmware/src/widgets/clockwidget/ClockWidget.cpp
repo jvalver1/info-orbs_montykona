@@ -4,6 +4,8 @@
 #include "CrashTrace.h"
 #include "DebugHelper.h"
 
+#define WIDGET_PREFIX "[Clock]"
+
 ClockWidget::ClockWidget(ScreenManager &manager, ConfigManager &config)
     : Widget(manager, config),
       m_drawTimer(addDrawRefreshFrequency(CLOCK_DRAW_DELAY)),
@@ -63,12 +65,12 @@ void ClockWidget::addConfigToManager() {
     // This ensures it's always accessible, bypassing any saved web configuration
     if (USE_CLOCK_CUSTOM > 0) {
         m_customEnabled[0] = true;
-        DEBUG_PRINTF("CustomClock0 FORCE-ENABLED AFTER config load (USE_CLOCK_CUSTOM=%d, m_customEnabled[0]=%d)\n", USE_CLOCK_CUSTOM, m_customEnabled[0]);
+        WIDGET_LOG_INFO(WIDGET_PREFIX, "CustomClock0 FORCE-ENABLED AFTER config load (USE_CLOCK_CUSTOM=%d, m_customEnabled[0]=%d)", USE_CLOCK_CUSTOM, m_customEnabled[0]);
     }
     // Force-enable CustomClock1 as well
     if (USE_CLOCK_CUSTOM > 1) {
         m_customEnabled[1] = true;
-        DEBUG_PRINTF("CustomClock1 FORCE-ENABLED AFTER config load (USE_CLOCK_CUSTOM=%d, m_customEnabled[1]=%d)\n", USE_CLOCK_CUSTOM, m_customEnabled[1]);
+        WIDGET_LOG_INFO(WIDGET_PREFIX, "CustomClock1 FORCE-ENABLED AFTER config load (USE_CLOCK_CUSTOM=%d, m_customEnabled[1]=%d)", USE_CLOCK_CUSTOM, m_customEnabled[1]);
     }
 #endif
 }
@@ -80,6 +82,7 @@ void ClockWidget::setup() {
     m_lastDisplay5Digit = "";
     m_lastAmPm = "";
     m_lastSecondSingle = -1;
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "after_init");
 }
 
 void ClockWidget::draw(bool force) {
@@ -135,22 +138,19 @@ void ClockWidget::draw(bool force) {
 void ClockWidget::displayAmPm(String &amPm, uint32_t color) {
     m_manager.selectScreen(2);
 
-    if (CLOCK_FONT == TTF_Font::DSEG7) {
-        m_manager.setFont(TTF_Font::DSEG14);
-    } else {
-        m_manager.setFont(CLOCK_FONT);
-    }
-
     // Clear the AM/PM area with a filled rectangle instead of drawing black text
-    // The AM/PM text is drawn at X: SCREEN_SIZE / 5 * 4, Y: SCREEN_SIZE / 2, Size: 25
+    // The AM/PM text is drawn at X: SCREEN_SIZE / 5 * 4, Y: SCREEN_SIZE / 2
     int x = SCREEN_SIZE / 5 * 4;
     int y = SCREEN_SIZE / 2;
     int w = 50;
     int h = 30;
     m_manager.fillRect(x - w / 2, y - h / 2, w, h, TFT_BLACK);
 
-    m_manager.setFontColor(color, TFT_BLACK);
-    m_manager.drawString(amPm, x, y, 25, Align::MiddleCenter);
+    // Draw using legacy font 4 to avoid TTF font load/unload cycles (Strategy F)
+    m_manager.setLegacyTextDatum(MC_DATUM);
+    m_manager.setLegacyTextColor(color, TFT_BLACK, true);
+    m_manager.setLegacyTextSize(1);
+    m_manager.drawLegacyString(amPm, x, y, 4);
 }
 
 void ClockWidget::update(bool force) {
@@ -216,7 +216,7 @@ bool ClockWidget::isValidClockType(int clockType) {
     else if (isCustomClock(clockType)) {
         int customClockNumber = clockType - (int) ClockType::CUSTOM0;
         bool isValid = USE_CLOCK_CUSTOM > customClockNumber && m_customEnabled[customClockNumber];
-        DEBUG_PRINTF("Checking CustomClock%d: USE_CLOCK_CUSTOM=%d, enabled=%d, valid=%d\n",
+        WIDGET_LOG_TRACE(WIDGET_PREFIX, "Checking CustomClock%d: USE_CLOCK_CUSTOM=%d, enabled=%d, valid=%d",
                      customClockNumber, USE_CLOCK_CUSTOM, m_customEnabled[customClockNumber], isValid);
         return isValid;
     } else
@@ -229,13 +229,13 @@ void ClockWidget::changeClockType() {
     if (m_type >= CLOCK_TYPE_NUM) {
         m_type = 0;
     }
-    DEBUG_PRINTF("Attempting to change clock type from %d to %d\n", oldType, m_type);
+    WIDGET_LOG_INFO(WIDGET_PREFIX, "Attempting to change clock type from %d to %d", oldType, m_type);
     if (!isValidClockType(m_type)) {
-        DEBUG_PRINTF("Clock type %d is NOT valid, trying next...\n", m_type);
+        WIDGET_LOG_TRACE(WIDGET_PREFIX, "Clock type %d is NOT valid, trying next...", m_type);
         // Call recursively until a valid clock type is found
         changeClockType();
     } else {
-        DEBUG_PRINTF("Clock type %d IS VALID, switching to it\n", m_type);
+        WIDGET_LOG_INFO(WIDGET_PREFIX, "Clock type %d IS VALID, switching to it", m_type);
         m_manager.clearAllScreens();
         draw(true);
     }
@@ -299,7 +299,7 @@ void ClockWidget::displayDigit(int displayIndex, const String &lastDigit, const 
     }
     uint32_t end = millis();
 #ifdef CLOCK_DEBUG
-    DEBUG_PRINTF("displayDigit(%s) took %dms\n", digit.c_str(), end - start);
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "displayDigit(%s) took %dms", digit.c_str(), end - start);
 #endif
 }
 

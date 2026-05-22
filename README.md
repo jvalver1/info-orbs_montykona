@@ -348,24 +348,65 @@ drawString(...)
 
 This means a transient font-load failure results in **at most one blank frame** — the widget self-heals on the very next draw cycle without any manual intervention, instead of showing permanently black screens or crashing.
 
-### OpenFontRender Heap Fragmentation Fix
+### Font Rendering & FreeType Memory Optimizations
 
-**Problem:** `OpenFontRender` uses `std::queue<FT_UInt32>` internally to buffer Unicode codepoints during string rendering. `std::queue` is backed by `std::deque`, which allocates many small independent heap nodes (one per push). During high-frequency rendering (e.g., the 5-Zone Clock updating every second across all five screens), this created thousands of tiny heap allocations and deallocations per second, progressively fragmenting the heap until a contiguous block could no longer be found — triggering a `std::bad_alloc` exception.
+**Problem:** TrueType/OpenType font rendering using the FreeType library is highly resource-intensive on the ESP32. Several factors contributed to heap fragmentation and memory exhaustion during widget rendering:
+1. **Multiple Font Renderers:** The system initialized a six-element array of `OpenFontRender` instances, each maintaining its own static lambda closures and caching system. This consumed excessive static memory and duplicated FreeType's shared glyph manager (`FTC_Manager`) cache.
+2. **High-Frequency Allocation Churn:** During string drawing, `OpenFontRender` used `std::queue<FT_UInt32>` (backed by `std::deque`) to buffer Unicode codepoints. This allocated many small independent heap nodes per character on every frame, generating thousands of dynamic allocations per second.
+3. **Redundant Bounding Box Queries:** Bounding box calculations called `drawHString` in "skip mode" to compute vertical alignment corrections (`yMin`), doubling font rendering calls and dynamic allocations.
+4. **Frequent Font Cache Eviction:** The Clock Widget repeatedly switched fonts between digital display styles (DSEG7/DSEG14) and built-in fonts during a single draw loop, causing FreeType to continually evict and reload glyphs.
 
-**Solution:** Both `std::queue` instances inside `OpenFontRender::drawHString()` were replaced with `std::vector` using `.reserve()` to pre-allocate a single contiguous block:
+**Solution:** A comprehensive font-rendering optimization was implemented:
+- **Single Renderer Consolidation:** Replaced the `OpenFontRender` array with a single consolidated `m_render` instance in `ScreenManager`. This eliminated duplicate glyph managers and saved ~2 KB of permanent heap.
+- **Static Vectors in `drawHString`:** Converted local queues inside `OpenFontRender::drawHString()` to `static std::vector` variables that utilize `.clear()` and `.reserve()`. Since rendering is sequential on Core 1, this thread-safe change reduces heap allocations per character to zero.
+- **FNV-1a Alignment Cache:** Implemented a 16-entry circular cache using FNV-1a hashing of the target string in `ScreenManager`. It caches vertical correction factors (`yMin`), bypassing redundant bounding-box calculations for identical strings.
+- **Clock Font Stabilization:** Removed mid-draw font switching in the Clock Widget. It now draws AM/PM indicators using the built-in `TFT_eSPI` legacy fonts, preventing FreeType cache evictions.
 
-```cpp
-// Before — allocates a new heap node for every character
-std::queue<FT_UInt32> unicode_q;
-unicode_q.push(unicode);
+### Static Heap & Task Management Optimizations
 
-// After — single contiguous allocation, zero per-character heap traffic
-std::vector<FT_UInt32> unicode_q;
-unicode_q.reserve(len);
-unicode_q.push_back(unicode);
-```
+**Problem:** FreeRTOS tasks and standard library containers dynamically allocated on the heap led to instability. Standard heap allocations (`xTaskCreate` and `std::set`) can fail under memory pressure and contribute to long-term fragmentation.
 
-Index-based iteration replaces the `front()` / `pop()` pattern, so no element is ever moved or destroyed mid-loop.
+**Solution:** Migrated dynamic allocations to compile-time static memory:
+- **Static HTTP Task Stack:** Declared a global `StaticTask_t` buffer and a static `StackType_t` stack buffer (`12000` words/48 KB) in `TaskManager`. Switched `TaskManager::startWorkerTask` to use `xTaskCreateStaticPinnedToCore()`. This permanently reserves the task stack in `.bss` during compilation, recovering 12 KB (words) of dynamic heap and ensuring the networking task can always launch.
+- **Fixed-Size Deduplication Array:** Replaced the dynamically allocated `std::set<String>` for tracking active request URLs with a static `String activeUrls[10]` array. Safe thread access is maintained using a simple linear scan, avoiding red-black tree node overhead and reclaiming ~3 KB of heap space per cycle.
+
+### ESP_SSLClient Integration for Low-Heap Secure Networking
+
+**Problem:** Standard ESP32 SSL clients (such as `WiFiClientSecure` using mbedTLS) require large buffers (often 16 KB RX / 16 KB TX) for TLS handshakes, which can consume over 30-40 KB of contiguous heap space. Under transient heap pressure, HTTPS requests to weather and stock APIs would fail (HTTP error `-1`) or cause system crashes.
+
+**Solution:** Switched to a custom low-heap wrapper based on `ESP_SSLClient` (BearSSL):
+- **ESP_SSLClientWrapper:** Implemented a custom wrapper class (`ESP_SSLClientWrapper`) inheriting from `WiFiClient` that embeds `ESP_SSLClient`. It configures tiny BearSSL internal buffer sizes (5120 bytes RX and 1024 bytes TX), reducing the total heap footprint for an active TLS socket to less than 15 KB.
+- **Write Error Synchronization:** Added a bidirectional error-propagation helper (`syncWriteError()`) between the wrapper and `ESP_SSLClient`'s internal stream. This ensures write errors and socket close statuses are accurately propagated to `HTTPClient` instead of failing silently.
+- **Timeout Forwarding:** Fixed connection timeouts by forwarding the timeout parameter to `ESP_SSLClient::connect()`.
+- **Heap Safety Guard:** Embedded a check before allocating the SSL client. If the largest contiguous free memory block is below a threshold (`SSL_MIN_HEAP = 15000` bytes), the request is gracefully skipped and queued with a timeout error, preventing mbedTLS/BearSSL from crashing due to allocation failures.
+
+### Environment-Switching Timezone Offset Memory Leak
+
+**Problem:** Over a 15-minute runtime, the free heap and largest contiguous memory block steadily declined. This was caused by a memory leak of ~44 bytes per second. 
+- The root cause was `GlobalTime::calculateActiveTimezoneOffset()`, which was invoked once per second in the main loop.
+- To compute the local time zone offset, it changed the global environment variable `TZ` by calling `setenv("TZ", "UTC0", 1)` and then restored it via `setenv("TZ", savedTz, 1)`.
+- Under the `newlib` C library used by ESP-IDF, calling `setenv` with changing string lengths leaks memory because it dynamically reallocates new entries in the environment array but does not reclaim old ones.
+
+**Solution:** Replaced environment-variable switching with pure calendar arithmetic:
+- Implemented a static timezone-independent helper `tmToSeconds()` that converts a standard `struct tm` structure directly into raw epoch seconds using Gregorian calendar arithmetic:
+  $$ \text{seconds} = f(\text{year}, \text{month}, \text{day}, \text{hour}, \text{minute}, \text{second}) $$
+- The updated function retrieves local time using `localtime_r()` (which relies on the system's already-configured POSIX timezone) and subtracts the raw UTC epoch to compute the offset arithmetically:
+  ```cpp
+  struct tm tmLocal;
+  localtime_r(&utcEpoch, &tmLocal);
+  int offset = (int)(tmToSeconds(&tmLocal) - utcEpoch);
+  ```
+- **Impact:** The 44-byte-per-second memory leak is fully resolved. The ESP32's free heap and largest free block remain completely flat during infinite runtime cycles.
+
+### Rationalized Log Levels & Compile-Time Diagnostics
+
+**Problem:** The firmware previously emitted verbose debug messages from widgets directly to the serial port without any level-based control. This created excessive serial traffic and high overhead. Furthermore, monitoring heap usage and tracking memory leaks across different widgets during API calls and deserialization required ad-hoc print statements.
+
+**Solution:** A unified widget logging and heap diagnostic framework was introduced:
+- **Unified Log Macros:** Replaced all widget `Log.*` and `Serial.*` outputs with `WIDGET_LOG_ERROR`, `WIDGET_LOG_WARN`, `WIDGET_LOG_INFO`, `WIDGET_LOG_TRACE`, and `WIDGET_LOG_TRACE_RAW` macros. All macros prepend the respective widget tag (e.g., `[WiFi]`, `[Clock]`, `[Weather]`, `[Stock]`, `[Parqet]`, `[MQTT]`, `[5Zone]`) for consistent serial formatting.
+- **Compile-Time Level Control:** Added the `WIDGET_DEBUG_LEVEL` directive in `config.h`. Standard levels include `WIDGET_LOG_LEVEL_SILENT` (default), `WIDGET_LOG_LEVEL_ERROR`, `WIDGET_LOG_LEVEL_WARN`, `WIDGET_LOG_LEVEL_INFO`, and `WIDGET_LOG_LEVEL_TRACE`. In silent mode, all widget logs and diagnostics compile down to no-ops, ensuring zero runtime or binary size overhead.
+- **Heap Diagnostics:** Introduced the `WIDGET_HEAP_SNAP(prefix, label)` macro for widgets, and integrated the system-level `HEAP_SNAP(label)` macro. Both trace ESP32 heap metadata (total free heap, largest free block size, and fragmentation percentage) at key lifecycle points (initialization, network fetches, and JSON deserialization).
+- **Runtime Web UI Toggle Integration:** All widget log macros and both widget and system heap diagnostics (`HEAP_SNAP`/`SHOW_MEMORY_USAGE`) check the global web portal toggle `isDebugEnabled_global()` before emitting outputs, ensuring all logs are strictly controlled by the runtime debug flag.
 
 ---
 

@@ -4,6 +4,9 @@
 #include "GlobalTime.h"
 #include "TaskFactory.h"
 #include "config_helper.h"
+#include "DebugHelper.h"
+
+#define WIDGET_PREFIX "[Weather]"
 
 VisualCrossingFeed::VisualCrossingFeed(const String &apiKey, int units)
     : apiKey(apiKey), m_units(units) {}
@@ -14,7 +17,7 @@ void VisualCrossingFeed::setupConfig(ConfigManager &config) {
 }
 
 bool VisualCrossingFeed::getWeatherData(WeatherDataModel &model) {
-
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-fetch");
     String tempUnits = m_units == 0 ? "metric" : "us";
 
     String lang = I18n::getLanguageString();
@@ -32,13 +35,13 @@ bool VisualCrossingFeed::getWeatherData(WeatherDataModel &model) {
         httpRequestAddress, [this, modelPtr](int httpCode, const String &response) { processResponse(httpCode, response, *modelPtr); });
 
     if (!task) {
-        Log.errorln("Failed to create weather task");
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to create weather task");
         return false;
     }
 
     bool success = TaskManager::getInstance()->addTask(std::move(task));
     if (!success) {
-        Log.errorln("Failed to add weather task");
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to add weather task");
     }
 
     return success;
@@ -64,7 +67,7 @@ void VisualCrossingFeed::preProcessResponse(int httpCode, String &response) {
             response = doc.as<String>();
         } else {
             // Handle JSON deserialization error
-            Log.errorln("Deserialization failed: %s", error.c_str());
+            WIDGET_LOG_ERROR(WIDGET_PREFIX, "Deserialization failed: %s", error.c_str());
         }
     }
 }
@@ -83,8 +86,10 @@ void VisualCrossingFeed::processResponse(int httpCode, const String &response, W
             filter["days"][i]["tempmin"] = true;
         }
 
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-deserialization");
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
+        WIDGET_HEAP_SNAP(WIDGET_PREFIX, "post-deserialization");
 
         if (!error) {
             model.setCityName(doc["resolvedAddress"].as<String>());
@@ -101,9 +106,9 @@ void VisualCrossingFeed::processResponse(int httpCode, const String &response, W
             }
         } else {
             // Handle JSON deserialization error
-            Log.errorln("Deserialization failed: %s", error.c_str());
+            WIDGET_LOG_ERROR(WIDGET_PREFIX, "Deserialization failed: %s", error.c_str());
         }
     } else {
-        Log.errorln("HTTP request failed, error code: %d", httpCode);
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "HTTP request failed, error code: %d", httpCode);
     }
 }

@@ -85,13 +85,6 @@ public:
         }
     }
 
-private:
-    TaskManager();
-
-    static void httpWorkerTask(void *pvParameters);
-
-    static TaskManager *instance;
-
     static const uint16_t STACK_SIZE = 12000; // Increased from 10000 for safety margin
     static const UBaseType_t TASK_PRIORITY = 1;
     static const UBaseType_t REQUEST_QUEUE_SIZE = 20;
@@ -101,9 +94,18 @@ private:
     static const TickType_t QUEUE_CHECK_DELAY = pdMS_TO_TICKS(100); // 100ms between queue checks
     static std::atomic<int> taskParamsCount;
 
+private:
+    TaskManager();
+
+    static void httpWorkerTask(void *pvParameters);
+
+    static TaskManager *instance;
+
     // Mutex-protected set for tracking active URLs (replaces broken queue rotation)
     static SemaphoreHandle_t urlSetMutex;
-    static std::set<String> activeUrls;
+    static const uint8_t MAX_ACTIVE_URLS = 10;
+    static String activeUrls[MAX_ACTIVE_URLS];
+    static uint8_t activeUrlCount;
 };
 
 #endif // TASK_MANAGER_H

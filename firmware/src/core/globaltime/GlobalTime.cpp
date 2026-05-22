@@ -218,6 +218,28 @@ bool GlobalTime::isTimeValid() {
     return m_unixEpoch > 1735689600; // 2025-01-01 UTC
 }
 
+static time_t tmToSeconds(const struct tm *tm) {
+    int year = tm->tm_year + 1900;
+    int month = tm->tm_mon; // 0-11
+    int day = tm->tm_mday - 1; // 0-based
+
+    static const int days_before_month[] = {
+        0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
+    };
+
+    int y = year - 1970;
+    int leap_days = (y + 1) / 4 - (y + 69) / 100 + (y + 369) / 400;
+
+    time_t days = y * 365LL + leap_days + days_before_month[month] + day;
+
+    bool is_leap = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+    if (is_leap && month > 1) {
+        days += 1;
+    }
+
+    return days * 86400LL + tm->tm_hour * 3600LL + tm->tm_min * 60LL + tm->tm_sec;
+}
+
 int GlobalTime::calculateActiveTimezoneOffset(time_t utcEpoch) {
     // Protect global TZ environment variable from concurrent access by background tasks
     if (s_tzMutex && xSemaphoreTakeRecursive(s_tzMutex, pdMS_TO_TICKS(500)) != pdTRUE) {
@@ -227,27 +249,13 @@ int GlobalTime::calculateActiveTimezoneOffset(time_t utcEpoch) {
 
     struct tm tmLocal;
     localtime_r(&utcEpoch, &tmLocal);
-
-    const char *savedTz = getenv("TZ");
-    String savedTzStr = savedTz ? String(savedTz) : "";
-
-    setenv("TZ", "UTC0", 1);
-    tzset();
-    tmLocal.tm_isdst = 0;
-    time_t localAsUtcEpoch = mktime(&tmLocal);
-
-    if (savedTzStr.length() > 0) {
-        setenv("TZ", savedTzStr.c_str(), 1);
-    } else {
-        unsetenv("TZ");
-    }
-    tzset();
+    int offset = (int)(tmToSeconds(&tmLocal) - utcEpoch);
 
     if (s_tzMutex) {
         xSemaphoreGiveRecursive(s_tzMutex);
     }
 
-    return (int) difftime(localAsUtcEpoch, utcEpoch);
+    return offset;
 }
 
 int GlobalTime::getOffsetForTimezone(const char *timezoneLocation, int fallbackOffset) {

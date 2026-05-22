@@ -34,7 +34,7 @@ void LittleFSHelper::readFile(const char *path) {
     }
     DEBUG_PRINTF("Reading file: %s\n", path);
     while (file.available()) {
-        Serial.write(file.read());
+        DEBUG_WRITE(file.read());
     }
     file.close();
 }

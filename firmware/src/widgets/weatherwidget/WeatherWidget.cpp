@@ -5,6 +5,13 @@
 // 2
 // make high/low an enum, if we even keep it (I strongly suggest just switching back
 // and forth between high and low every 10 seconds or something)
+// TODO:
+// 1
+// factor out a selectDisplay that selects the dispay and returns the workable object,
+// so we don't have this select, getDisplay crap all over the place
+// 2
+// make high/low an enum, if we even keep it (I strongly suggest just switching back
+// and forth between high and low every 10 seconds or something)
 // 3
 // factor out the text wrapping (there's a utils for that already, if that doesn't work, why not?)
 
@@ -17,7 +24,8 @@
 #include "feeds/VisualCrossingFeed.h"
 #include "icons.h"
 #include <ArduinoJson.h>
-#include <ArduinoLog.h>
+
+#define WIDGET_PREFIX "[Weather]"
 
 WeatherWidget::WeatherWidget(ScreenManager &manager, ConfigManager &config)
     : Widget(manager, config),
@@ -30,7 +38,7 @@ WeatherWidget::WeatherWidget(ScreenManager &manager, ConfigManager &config)
     m_config.addConfigComboBox("WeatherWidget", "weatherUnits", &m_weatherUnits, t_temperatureUnits, t_temperatureUnit, true);
     m_config.addConfigComboBox("WeatherWidget", "weatherScrMode", &m_screenMode, t_screenModes, t_screenMode, true);
     m_config.addConfigInt("WeatherWidget", "weatherCycleHL", &m_switchinterval, t_weatherCycleHL, true);
-    DEBUG_PRINTF("WeatherWidget initialized, mode=%d\n", m_screenMode);
+    WIDGET_LOG_INFO(WIDGET_PREFIX, "WeatherWidget initialized, mode=%d", m_screenMode);
     m_mode = MODE_HIGHS;
 }
 
@@ -68,6 +76,7 @@ void WeatherWidget::setup() {
     m_time = GlobalTime::getInstance();
     configureColors();
     m_prevMillisSwitch = millis();
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "after_init");
 }
 
 void WeatherWidget::draw(bool force) {
@@ -166,7 +175,7 @@ void WeatherWidget::drawWeatherIcon(int displayIndex, const String &condition, i
         iconStart = m_screenMode == Light ? cloudsW_start : cloudsB_start;
         iconEnd = m_screenMode == Light ? cloudsW_end : cloudsB_end;
     } else {
-        Log.warningln("Unknown weather icon: %s", condition.c_str());
+        WIDGET_LOG_WARN(WIDGET_PREFIX, "Unknown weather icon: %s", condition.c_str());
     }
 
     if (iconStart != NULL && iconEnd != NULL && iconEnd > iconStart) {

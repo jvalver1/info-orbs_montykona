@@ -3,6 +3,7 @@
 #include "DebugHelper.h"
 #include "GlobalResources.h"
 #include "MainHelper.h"
+#include "ShowMemoryUsage.h"
 #include "clockwidget/ClockWidget.h"
 #include "eyeswidget/EyesWidget.h"
 #include "matrixwidget/MatrixWidget.h"
@@ -136,6 +137,12 @@ void setup() {
     config->setupWebPortal();
     CrashTrace::mark("setup:complete");
     MainHelper::resetCycleTimer();
+
+    // Phase 1 Diag: Baseline snapshot immediately after setup() completes.
+    // This is the "clean" heap state before any HTTP calls or font-switching
+    // cycles degrade the largest free block. Record this value — subsequent
+    // HEAP_SNAP lines in TaskFactory and ScreenManager show degradation from here.
+    HEAP_SNAP("SETUP-COMPLETE");
 }
 
 static StaticTask_t networkTaskBuffer;
@@ -175,6 +182,12 @@ void loop() {
                 CrashTrace::mark("loop:initial-update");
                 widgetSet->initializeAllWidgetsData();
                 MainHelper::setupWebPortalEndpoints();
+
+                // Phase 1 Diag: Snapshot after all widgets fire their first HTTP request
+                // and the responses are processed. This is the first major fragmentation
+                // event — compare against SETUP-COMPLETE to see the total impact of the
+                // initial widget data load on the largest free block.
+                HEAP_SNAP("INITIAL-WIDGETS-DONE");
 
                 // Start Network Task on Core 0 only after initial setup
                 if (networkTaskHandle == nullptr) {

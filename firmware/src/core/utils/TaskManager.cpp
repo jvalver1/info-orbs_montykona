@@ -14,8 +14,12 @@ std::atomic<uint32_t> TaskManager::activeRequests{0};
 std::atomic<uint32_t> TaskManager::maxConcurrentRequests{0};
 std::atomic<int> TaskManager::taskParamsCount{0};
 SemaphoreHandle_t TaskManager::urlSetMutex = nullptr;
-std::set<String> TaskManager::activeUrls;
+String TaskManager::activeUrls[TaskManager::MAX_ACTIVE_URLS];
+uint8_t TaskManager::activeUrlCount = 0;
 static SemaphoreHandle_t taskLimitSemaphore = nullptr;
+static StaticTask_t httpWorkerTaskBuffer;
+static StackType_t httpWorkerStack[TaskManager::STACK_SIZE];
+static TaskHandle_t httpWorkerHandle = nullptr;
 
 TaskManager::TaskManager() {
     if (!requestQueue) {
@@ -37,28 +41,53 @@ TaskManager *TaskManager::getInstance() {
     if (!instance) {
         instance = new TaskManager();
 
-        // Spawn the static worker task that handles HTTP requests
-        xTaskCreate(
+        // Spawn the static worker task that handles HTTP requests pinned to Core 0 (PRO_CPU)
+        httpWorkerHandle = xTaskCreateStaticPinnedToCore(
             httpWorkerTask,
             "HTTP_WORKER",
             STACK_SIZE,
             nullptr,
             TASK_PRIORITY,
-            nullptr);
+            httpWorkerStack,
+            &httpWorkerTaskBuffer,
+            0 // Pinned to Core 0
+        );
     }
     return instance;
 }
 
 void TaskManager::addActiveUrl(const String &url) {
     if (xSemaphoreTake(urlSetMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        activeUrls.insert(url);
+        if (activeUrlCount < MAX_ACTIVE_URLS) {
+            bool found = false;
+            for (uint8_t i = 0; i < activeUrlCount; ++i) {
+                if (activeUrls[i] == url) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                activeUrls[activeUrlCount++] = url;
+            }
+        } else {
+            Log.errorln("Active URLs list full! Max %d URLs allowed.", MAX_ACTIVE_URLS);
+        }
         xSemaphoreGive(urlSetMutex);
     }
 }
 
 void TaskManager::removeActiveUrl(const String &url) {
     if (xSemaphoreTake(urlSetMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        activeUrls.erase(url);
+        for (uint8_t i = 0; i < activeUrlCount; ++i) {
+            if (activeUrls[i] == url) {
+                for (uint8_t j = i; j < activeUrlCount - 1; ++j) {
+                    activeUrls[j] = std::move(activeUrls[j + 1]);
+                }
+                activeUrls[activeUrlCount - 1] = String();
+                --activeUrlCount;
+                break;
+            }
+        }
         xSemaphoreGive(urlSetMutex);
     }
 }
@@ -66,11 +95,17 @@ void TaskManager::removeActiveUrl(const String &url) {
 bool TaskManager::isUrlActive(const String &url) {
     bool found = false;
     if (xSemaphoreTake(urlSetMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        found = activeUrls.count(url) > 0;
+        for (uint8_t i = 0; i < activeUrlCount; ++i) {
+            if (activeUrls[i] == url) {
+                found = true;
+                break;
+            }
+        }
         xSemaphoreGive(urlSetMutex);
     }
     return found;
 }
+
 
 bool TaskManager::addTask(std::unique_ptr<Task> task) {
     if (isUrlActive(task->url)) {
@@ -107,7 +142,7 @@ void TaskManager::httpWorkerTask(void *pvParameters) {
         // reducing the chance of the next SSL handshake failing with -32512.
         size_t freeHeap = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         if (freeHeap < 60000) {
-            Log.warningln("[HEAP] Low internal DRAM (%u B free), pausing HTTP worker 500 ms", freeHeap);
+            Log.warningln("[HEAP] Low internal DRAM (%d B free), pausing HTTP worker 500 ms", (int)freeHeap);
             vTaskDelay(pdMS_TO_TICKS(500));
         }
 

@@ -1,7 +1,9 @@
 #include "MQTTWidget.h"
 #include "CrashTrace.h"
 #include "MQTTTranslations.h"
-#include <ArduinoLog.h>
+#include "DebugHelper.h"
+
+#define WIDGET_PREFIX "[MQTT]"
 
 // Initialize the static instance pointer
 MQTTWidget *MQTTWidget::instance = nullptr;
@@ -111,20 +113,8 @@ uint16_t MQTTWidget::getColorFromString(const String &colorStr) {
     return TFT_BLACK; // Default color if unknown
 }
 
-// Setup method
 void MQTTWidget::setup() {
-    //    Log.traceln("Inside setup method");
-    /*
-        // Initialize MQTT connection
-        reconnect();
-
-        // Subscribe to the setup topic
-        if (mqttClient.connected()) {
-            mqttClient.subscribe(MQTT_SETUP_TOPIC);
-            Log.traceln("Subscribed to setup topic1: %s", MQTT_SETUP_TOPIC.c_str());
-        }
-        // Additional setup (e.g., initializing display elements) can be added here
-    */
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "after_init");
 }
 
 // Update method
@@ -165,7 +155,7 @@ void MQTTWidget::callback(char *topic, byte *payload, unsigned int length) {
     }
 
     String receivedTopic = String(topic);
-    Log.traceln("Message arrived [%s]: %s", receivedTopic.c_str(), message.c_str());
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Message arrived [%s]: %s", receivedTopic.c_str(), message.c_str());
 
     if (receivedTopic.equals(mqttSetupTopic.c_str())) {
         handleSetupMessage(message);
@@ -185,12 +175,14 @@ void MQTTWidget::callback(char *topic, byte *payload, unsigned int length) {
             if (orb) {
                 if (orb->jsonField.length() > 0) {
                     // The orb expects a specific JSON field
+                    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-deserialization");
                     JsonDocument dataDoc;
                     DeserializationError dataError = deserializeJson(dataDoc, message);
                     if (dataError) {
-                        Log.errorln("Failed to parse data JSON: %s", dataError.c_str());
+                        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to parse data JSON: %s", dataError.c_str());
                         return;
                     }
+                    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "post-deserialization");
 
                     // Extract the specified JSON field using dynamic path traversal
                     JsonVariant fieldValue = dataDoc.as<JsonVariant>();
@@ -211,7 +203,7 @@ void MQTTWidget::callback(char *topic, byte *payload, unsigned int length) {
                             if (fieldValue.is<JsonArray>()) {
                                 fieldValue = fieldValue[index]; // Access the array element by index
                             } else {
-                                Log.errorln("Error: Expected an array for %s", token);
+                                WIDGET_LOG_ERROR(WIDGET_PREFIX, "Error: Expected an array for %s", token);
                                 return;
                             }
                         } else {
@@ -241,48 +233,50 @@ void MQTTWidget::callback(char *topic, byte *payload, unsigned int length) {
 
                             // Update the display only if the value has actually changed
                             it->second = extractedValue;
-                            Log.traceln("Parsed %s : %s", orb->jsonField.c_str(), extractedValue.c_str());
+                            WIDGET_LOG_TRACE(WIDGET_PREFIX, "Parsed %s : %s", orb->jsonField.c_str(), extractedValue.c_str());
 
                             // Redraw the orb with updated data
                             drawOrb(orb->orbid);
                         } else {
-                            Log.traceln("No change detected for field: %s", orb->jsonField.c_str());
+                            WIDGET_LOG_TRACE(WIDGET_PREFIX, "No change detected for field: %s", orb->jsonField.c_str());
                         }
                     } else {
-                        Log.warningln("JSON field '%s' not found in payload.", orb->jsonField.c_str());
+                        WIDGET_LOG_WARN(WIDGET_PREFIX, "JSON field '%s' not found in payload.", orb->jsonField.c_str());
                         return;
                     }
                 } else {
                     // The orb does not expect a JSON field; use the entire payload
                     if (it->second != message) {
                         it->second = message;
-                        Log.traceln("Updated data for %s : %s", receivedTopic.c_str(), message.c_str());
+                        WIDGET_LOG_TRACE(WIDGET_PREFIX, "Updated data for %s : %s", receivedTopic.c_str(), message.c_str());
                         drawOrb(orb->orbid);
                     } else {
-                        Log.traceln("No change detected for topic: %s", receivedTopic.c_str());
+                        WIDGET_LOG_TRACE(WIDGET_PREFIX, "No change detected for topic: %s", receivedTopic.c_str());
                     }
                 }
             } else {
-                Log.warningln("No orb configuration found for topic: %s", receivedTopic.c_str());
+                WIDGET_LOG_WARN(WIDGET_PREFIX, "No orb configuration found for topic: %s", receivedTopic.c_str());
             }
         } else {
-            Log.traceln("Received message for unknown topic: %s", receivedTopic.c_str());
+            WIDGET_LOG_TRACE(WIDGET_PREFIX, "Received message for unknown topic: %s", receivedTopic.c_str());
         }
     }
 }
 
 // Handle setup message to configure orbs
 void MQTTWidget::handleSetupMessage(const String &message) {
-    //    Log.traceln("Handling setup message...");
+    //    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Handling setup message...");
 
     // Parse JSON configuration
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "pre-setup-deserialization");
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, message);
 
     if (error) {
-        Log.errorln("Failed to parse setup JSON: %s", error.c_str());
+        WIDGET_LOG_ERROR(WIDGET_PREFIX, "Failed to parse setup JSON: %s", error.c_str());
         return;
     }
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "post-setup-deserialization");
 
     // Clear existing configurations and data
     orbConfigs.clear();
@@ -316,7 +310,7 @@ void MQTTWidget::handleSetupMessage(const String &message) {
         config.orbTextColor = getColorFromString(textColorStr);
 
         orbConfigs.push_back(config);
-        Log.infoln("Configured Orb: %d -> %s", config.orbid, config.orbdesc.c_str());
+        WIDGET_LOG_INFO(WIDGET_PREFIX, "Configured Orb: %d -> %s", config.orbid, config.orbdesc.c_str());
 
         // Initialize data map with empty strings
         orbDataMap[config.topicSrc] = "";
@@ -333,14 +327,14 @@ void MQTTWidget::handleSetupMessage(const String &message) {
 
 // Subscribe to all orb topics
 void MQTTWidget::subscribeToOrbs() {
-    //    Log.traceln("Inside subscribeToOrbs method");
+    //    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Inside subscribeToOrbs method");
 
     for (const auto &orb : orbConfigs) {
         bool success = mqttClient.subscribe(orb.topicSrc.c_str());
         if (success) {
-            Log.traceln("Subscribed to topic: %s", orb.topicSrc.c_str());
+            WIDGET_LOG_TRACE(WIDGET_PREFIX, "Subscribed to topic: %s", orb.topicSrc.c_str());
         } else {
-            Log.warningln("Failed to subscribe to topic: %s", orb.topicSrc.c_str());
+            WIDGET_LOG_WARN(WIDGET_PREFIX, "Failed to subscribe to topic: %s", orb.topicSrc.c_str());
         }
     }
 }
@@ -348,7 +342,7 @@ void MQTTWidget::subscribeToOrbs() {
 #define RECONNECT_INTERVAL 5000
 // Handle MQTT reconnection
 void MQTTWidget::reconnect() {
-    //    Log.traceln("Inside reconnect method");
+    //    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Inside reconnect method");
 
     // Loop until reconnected
     if (!mqttClient.connected()) {
@@ -358,7 +352,7 @@ void MQTTWidget::reconnect() {
             return;
         }
 
-        Log.traceln("Attempting MQTT connection...");
+        WIDGET_LOG_TRACE(WIDGET_PREFIX, "Attempting MQTT connection...");
         lastReconnectAttempt = now;
 
         // Generate a random client ID
@@ -371,32 +365,32 @@ void MQTTWidget::reconnect() {
         if (!mqttUser.empty() && !mqttPass.empty()) {
             // Attempt to connect with username and password
             connected = mqttClient.connect(clientId.c_str(), mqttUser.c_str(), mqttPass.c_str());
-            Log.traceln("Attempting MQTT connection with authentication...");
+            WIDGET_LOG_TRACE(WIDGET_PREFIX, "Attempting MQTT connection with authentication...");
         } else {
             // Attempt to connect without authentication
             connected = mqttClient.connect(clientId.c_str());
-            Log.traceln("Attempting MQTT connection without authentication...");
+            WIDGET_LOG_TRACE(WIDGET_PREFIX, "Attempting MQTT connection without authentication...");
         }
 
         // Check the result of the connection attempt
         if (connected) {
-            Log.traceln("MQTT connected");
+            WIDGET_LOG_TRACE(WIDGET_PREFIX, "MQTT connected");
             // Once connected, subscribe to the setup topic
             if (mqttClient.subscribe(mqttSetupTopic.c_str())) {
-                Log.traceln("Subscribed to setup topic2: %s", mqttSetupTopic.c_str());
+                WIDGET_LOG_TRACE(WIDGET_PREFIX, "Subscribed to setup topic2: %s", mqttSetupTopic.c_str());
             } else {
-                Log.warningln("Failed to subscribe to setup topic: %s", mqttSetupTopic.c_str());
+                WIDGET_LOG_WARN(WIDGET_PREFIX, "Failed to subscribe to setup topic: %s", mqttSetupTopic.c_str());
             }
         } else {
-            Log.warningln("failed, rc=%d", mqttClient.state());
-            Log.warningln("try again in 5 seconds");
+            WIDGET_LOG_WARN(WIDGET_PREFIX, "failed, rc=%d", mqttClient.state());
+            WIDGET_LOG_WARN(WIDGET_PREFIX, "try again in 5 seconds");
         }
     }
 }
 
 // New method to draw a single orb based on orbid
 void MQTTWidget::drawOrb(int orbid) {
-    //    Log.traceln("Inside drawOrb method");
+    //    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Inside drawOrb method");
 
     // Select the screen corresponding to the orbid
     m_manager.selectScreen(orbid);
@@ -411,7 +405,7 @@ void MQTTWidget::drawOrb(int orbid) {
     }
 
     if (orb == nullptr) {
-        Log.warningln("Orb not found for orbid: %d", orbid);
+        WIDGET_LOG_WARN(WIDGET_PREFIX, "Orb not found for orbid: %d", orbid);
         return;
     }
 

@@ -2,6 +2,8 @@
 #include "5ZoneTranslations.h"
 #include "CrashTrace.h"
 #include "DebugHelper.h"
+
+#define WIDGET_PREFIX "[5Zone]"
 #include "FlagImages.h"
 #include "PosixTimezones.h"
 #include "TFT_eSPI.h"
@@ -43,17 +45,17 @@ FiveZoneWidget::FiveZoneWidget(ScreenManager &manager, ConfigManager &config) : 
         // Validate loaded timezone identifier - if it's a short abbreviation (4 chars or less),
         // it's likely old config using GMT, CET, etc. Replace with IANA identifier from config.h
         if (m_timeZones[i].tzInfo.length() <= 4 && strlen(defaultTZ[i]) > 4) {
-            DEBUG_PRINTF("Zone %d has invalid timezone '%s', replacing with '%s'\n",
-                         i, m_timeZones[i].tzInfo.c_str(), defaultTZ[i]);
+            WIDGET_LOG_WARN(WIDGET_PREFIX, "Zone %d has invalid timezone '%s', replacing with '%s'",
+                            i, m_timeZones[i].tzInfo.c_str(), defaultTZ[i]);
             m_timeZones[i].locName = defaultNames[i];
             m_timeZones[i].tzInfo = defaultTZ[i];
             m_timeZones[i].timeZoneOffset = defaultOffsets[i]; // Also reset offset
             m_timeZones[i].flag = defaultFlags[i]; // Also reset flag
         }
 
-        DEBUG_PRINTF("Zone %d initialized: name='%s', flag='%s', offset=%d seconds (%d hours)\n",
-                     i, m_timeZones[i].locName.c_str(), m_timeZones[i].flag.c_str(),
-                     m_timeZones[i].timeZoneOffset, m_timeZones[i].timeZoneOffset / 3600);
+        WIDGET_LOG_INFO(WIDGET_PREFIX, "Zone %d initialized: name='%s', flag='%s', offset=%d seconds (%d hours)",
+                        i, m_timeZones[i].locName.c_str(), m_timeZones[i].flag.c_str(),
+                        m_timeZones[i].timeZoneOffset, m_timeZones[i].timeZoneOffset / 3600);
     }
 
     for (int i = 0; i < MAX_ZONES; i++) {
@@ -85,20 +87,21 @@ void FiveZoneWidget::drawCountryFlag(const String &countryCode, int x, int y, in
 
 void FiveZoneWidget::setup() {
     m_time = GlobalTime::getInstance();
+    WIDGET_HEAP_SNAP(WIDGET_PREFIX, "after_init");
 }
 
 void FiveZoneWidget::getTZoneOffset(int8_t zoneIndex) {
     TimeZone &zone = m_timeZones[zoneIndex];
 
     if (!m_time || !m_time->isTimeValid()) {
-        DEBUG_PRINTF("Zone %d: System time not synced yet, deferring offset computation\n", zoneIndex);
+        WIDGET_LOG_TRACE(WIDGET_PREFIX, "Zone %d: System time not synced yet, deferring offset computation", zoneIndex);
         return;
     }
 
     zone.timeZoneOffset = m_time->getOffsetForTimezone(zone.tzInfo.c_str(), zone.timeZoneOffset);
-    DEBUG_PRINTF("Zone %d (%s): active offset=%d sec (%d hours)\n",
-                 zoneIndex, zone.tzInfo.c_str(),
-                 zone.timeZoneOffset, zone.timeZoneOffset / 3600);
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Zone %d (%s): active offset=%d sec (%d hours)",
+                     zoneIndex, zone.tzInfo.c_str(),
+                     zone.timeZoneOffset, zone.timeZoneOffset / 3600);
 
     // Refresh hourly to catch DST transitions
     zone.nextTimeZoneUpdate = m_time->getUnixEpoch() + 3600;
@@ -253,11 +256,11 @@ void FiveZoneWidget::displayZone(int8_t displayIndex, bool force) {
         return;
     }
 
-    DEBUG_PRINTF("Zone %d: name='%s', tzInfo='%s', offset=%d\n",
-                 displayIndex,
-                 zone.locName.c_str(),
-                 zone.tzInfo.c_str(),
-                 zone.timeZoneOffset);
+    WIDGET_LOG_TRACE(WIDGET_PREFIX, "Zone %d: name='%s', tzInfo='%s', offset=%d",
+                     displayIndex,
+                     zone.locName.c_str(),
+                     zone.tzInfo.c_str(),
+                     zone.timeZoneOffset);
 
     if (zone.locName != "") {
         m_localTimeZone.locName = "Local Time";

@@ -38,7 +38,11 @@
 
 // Log levels: LOG_LEVEL_SILENT, LOG_LEVEL_FATAL, LOG_LEVEL_ERROR,
 // LOG_LEVEL_WARNING, LOG_LEVEL_INFO, LOG_LEVEL_TRACE, LOG_LEVEL_VERBOSE (NOTICE is the same as INFO, it's kept for backward compatability)
-// #define LOG_LEVEL LOG_LEVEL_INFO
+// Set to LOG_LEVEL_SILENT for no ArduinoLog output on the serial port.
+#define LOG_LEVEL LOG_LEVEL_SILENT
+
+// Set debug output level for all widgets: WIDGET_LOG_LEVEL_SILENT, WIDGET_LOG_LEVEL_ERROR, WIDGET_LOG_LEVEL_WARN, WIDGET_LOG_LEVEL_INFO, WIDGET_LOG_LEVEL_TRACE
+#define WIDGET_DEBUG_LEVEL WIDGET_LOG_LEVEL_SILENT
 
 // Include current time in all log output
 #define LOG_TIMESTAMP
@@ -47,7 +51,7 @@
 // #define SERIAL_INTERFACE_INIT_DELAY 4000
 
 // if not defined, then no memory debugging is emitted
-#define MEMORY_DEBUG_INTERVAL 10000
+// #define MEMORY_DEBUG_INTERVAL 5000
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // WEB-BASED CONFIGURATION
