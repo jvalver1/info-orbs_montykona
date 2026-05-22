@@ -1,10 +1,10 @@
 #include "TempestFeed.h"
 #include "../WeatherTranslations.h"
 #include "CrashTrace.h"
+#include "DebugHelper.h"
 #include "GlobalTime.h"
 #include "TaskFactory.h"
 #include "config_helper.h"
-#include "DebugHelper.h"
 
 #define WIDGET_PREFIX "[Weather]"
 

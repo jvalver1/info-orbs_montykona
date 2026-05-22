@@ -1,7 +1,7 @@
 #include "MQTTWidget.h"
 #include "CrashTrace.h"
-#include "MQTTTranslations.h"
 #include "DebugHelper.h"
+#include "MQTTTranslations.h"
 
 #define WIDGET_PREFIX "[MQTT]"
 

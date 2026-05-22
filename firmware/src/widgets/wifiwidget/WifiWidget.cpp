@@ -1,7 +1,7 @@
 #include "WifiWidget.h"
+#include "DebugHelper.h"
 #include "OrbsWiFiManager.h"
 #include "Utils.h"
-#include "DebugHelper.h"
 #include <ESPmDNS.h>
 #include <WiFi.h>
 
